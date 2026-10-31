@@ -6,7 +6,7 @@
 <title>일일업무일지 생성기</title>
 <style>
 :root{font-family:system-ui,-apple-system,"맑은 고딕",sans-serif;color:#172c40;background:#f2f5f8}*{box-sizing:border-box}body{margin:0}main{max-width:1100px;margin:40px auto;padding:0 20px}header{margin-bottom:26px}h1{font-size:28px;margin:8px 0}h2{font-size:19px;margin:0 0 16px}.eyebrow{color:#28685a;font-weight:700;font-size:13px;letter-spacing:2px}p{color:#526779;line-height:1.6}.card{background:white;border:1px solid #dbe4eb;border-radius:16px;padding:24px;margin:18px 0;box-shadow:0 4px 18px #24394b06}.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}select,button,textarea{font:inherit}select{border:1px solid #bacbd7;border-radius:8px;padding:10px;background:white}button{cursor:pointer;border:0;border-radius:8px;padding:12px 18px;background:#176654;color:white;font-weight:600}button:hover{background:#104e40}button:disabled{opacity:.5;cursor:default}.hint{font-size:13px;color:#607588}.table-wrap{max-height:360px;overflow:auto;border:1px solid #e0e7ed;border-radius:10px}table{width:100%;border-collapse:collapse;font-size:14px}th{text-align:left;background:#edf3f6;position:sticky;top:0;z-index:1}td,th{padding:12px 14px;border-bottom:1px solid #e5ebf0}td:first-child{max-width:165px}td:last-child,th:last-child{text-align:center;white-space:nowrap}.item{background:transparent;color:#203c50;text-align:left;padding:4px 0;font-weight:500;line-height:1.6}.item:hover{background:transparent;color:#126b55;text-decoration:underline}tr.selected{background:#e9f6f1}textarea{display:block;width:100%;min-height:255px;resize:vertical;border:1px solid #bacbd7;border-radius:10px;padding:16px;line-height:1.8;color:#203c50;background:#fbfcfd}textarea:focus,select:focus,button:focus-visible{outline:3px solid #72bda9;outline-offset:2px}.actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px}#status{line-height:1.6;font-size:14px;color:#176654}#notice{color:#a43b25;margin-bottom:16px}footer{font-size:13px;color:#637889;padding:0 4px 24px;line-height:1.7}@media(max-width:600px){main{margin:24px auto;padding:0 12px}.card{padding:16px}h1{font-size:24px}td,th{padding:10px 8px}td:first-child{font-size:12px;min-width:70px}textarea{min-height:320px}}
-fieldset{border:1px solid #dbe4eb;border-radius:10px;margin:14px 0;padding:16px;min-width:0}legend{font-weight:700}input{font:inherit}input[type=date]{padding:8px;border:1px solid #bacbd7;border-radius:6px;max-width:100%}.check-list{display:grid;gap:10px;margin-top:12px}.check-list label{display:flex;gap:8px;align-items:baseline;font-size:14px;line-height:1.6}.check-list input{flex-shrink:0}.check-period{margin:8px 0}.check-period label{display:inline-block;margin:4px 8px 4px 0}summary{cursor:pointer;padding:10px 0}#inspection-status{color:#176654;line-height:1.6}
+input{font:inherit}input[type=date]{padding:8px;border:1px solid #bacbd7;border-radius:6px;max-width:100%}.check-period{margin:8px 0}.check-period label{display:inline-block;margin:4px 8px 4px 0}#inspection-status{color:#176654;line-height:1.6}
 </style>
 </head>
 <body>
@@ -20,9 +20,15 @@ fieldset{border:1px solid #dbe4eb;border-radius:10px;margin:14px 0;padding:16px;
 </section>
 <section class="card" aria-labelledby="inspection-heading">
 <h2 id="inspection-heading">2. 기간별 안전점검 선택 (선택 사항)</h2>
-<p class="hint">필요한 점검과 세부 항목을 선택하세요. 기간은 해당 연도 공문을 확인한 뒤 입력하세요. 입력한 기간은 일지에 함께 표시되며 자동으로 선택되지는 않습니다.</p>
-<div id="inspections"></div>
-<button id="apply-inspections" type="button">선택한 안전점검을 일지에 반영</button>
+<p class="hint">점검 종류를 고른 뒤 목록의 항목을 누르면 일지에 반영됩니다. 종류별로 한 항목씩 선택할 수 있으며, 복사 및 확정 시 선택한 항목의 사용 횟수가 증가합니다.</p>
+<div id="inspections">
+<div class="bar"><label for="inspection-category">점검 종류</label><select id="inspection-category"></select><span class="hint">항목별 사용 횟수 · 번호순 표시</span></div>
+<p id="inspection-hint" class="hint"></p>
+<div class="check-period"><label>시작일 <input type="date" id="inspection-start"></label><label>종료일 <input type="date" id="inspection-end"></label></div>
+<div class="table-wrap"><table><thead><tr><th scope="col">번호</th><th scope="col">안전점검 항목</th><th scope="col">사용 횟수</th></tr></thead><tbody id="inspection-items"></tbody></table></div>
+<p id="inspection-selected" class="hint"></p>
+<div class="actions"><button id="apply-inspections" type="button">기간 변경 반영</button><button id="remove-inspection" type="button">현재 종류 선택 해제</button></div>
+</div>
 <p id="inspection-status" role="status" aria-live="polite">작업 전 안전수칙 아래, 작업 후 위험예지훈련 위에 추가됩니다.</p>
 </section>
 <section class="card" aria-labelledby="output-heading"><h2 id="output-heading">3. 업무일지 확인 및 복사</h2>
@@ -71,70 +77,93 @@ function render() {
 }
 const INSPECTIONS = [["여름철 대비 안전점검", "제공 기간: '25.03.25. ~ 10.15.", ["비상 복구자재ㆍ장비ㆍ비상연락망 정비상태", "각종 교육(안전ㆍ직무ㆍ소방 등) 실시상태", "각 기능실 소화기 등 소방시설물 관리상태", "취약(주의)개소 점검 및 관리상태", "낙뢰 보호장비 및 예방시설물 점검(서지보호기 등)", "현장조치매뉴얼 현행화 및 숙지상태", "전기설비 구조물(변전소,전기실) 균열 및 누수점검", "수․송배전선로 맨홀, 관로 침수 여부 점검", "취약개소(변압기,이행구간,MCC 등) 점검", "보호계전기(GIPAM, 변전설비 등) 설정치 점검"]], ["겨울철 대비 안전점검", "제공 기간: '22.11.15. ~ '23.03.15.", ["비상 복구자재‧장비‧비상연락망 및 개인대응수칙 정비", "각종 교육(안전‧직무‧소방 등) 실시상태", "각 기능실 소화기 등 소방시설물 관리상태", "취약개소 점검 및 관리상태", "비상전원설비(UPS, 축전지 등) 동작상태", "전기설비 구조물(변전소, 전기실) 침하, 균열, 누수점검"]], ["해빙기 대비 안전점검", "제공 기간: '25.01.15. ~ '23.03.31. (연도 확인 필요)", ["비상 복구자재ㆍ수방용장비ㆍ비상연락망 정비", "개인대응수칙 및 현장조치매뉴얼 정비 및 숙지상태", "각종 교육(안전ㆍ직무ㆍ소방 등) 실시상태", "각 기능실 소화기 등 소방시설물 관리상태", "취약(주의)개소 점검 및 관리상태", "전기설비 구조물(변전소) 균열, 누수점검", "수전선로 맨홀 침하 여부 점검", "기타"]], ["풍수해 대비 안전점검", "제공 기간: '25.05.20. ~ 10.15.", ["비상 복구장비‧자재 관리 및 동작상태 점검", "취약(주의)개소점검 및 관리상태 점검", "기능실 구조물 균열․누수 및 배수로 상태 점검", "낙뢰 보호 장비 및 예방시설물 점검(피뢰기, 서지보호기 등)", "수․송배전선로 관로 및 맨홀침수 여부 점검", "비상연락망 및 현장조치 매뉴얼 현행화 상태점검", "우수기 취약 MCC반 점검"]], ["시설물 일제 안전점검", "매월 1~10일 / 공문 확인: N월 전기통신분야 시설물 일제 안전점검 시행", ["배전반 각종 절연애자 균열 및 파손 여부", "변성기 외관 상태 및 온도라벨 상태", "변압기 소음 및 온도 이상유무", "정류기 각종 제어기능 이상유무", "서지보호장치 전원램프 및 배선 취부상태", "충전장치 부동 및 균등전압 설정값 상태", "소공간 자동소화장치 약제 실린더 압력상태", "원격소장치 표시등 점등상태 및 통신상태", "변전소 환기설비 정상가동 여부", "변전소 콘센트, 조명등기구 등 취부상태 등", "변전소 구축물 균열 및 누수 여부", "접지선 배열 및 단자 조임 상태", "변전소(제한구역) 출입문 잠금장치 상태"]], ["설 연휴 대비 자체 안전점검", "제공 기간: '25.01.07. ~ 01.17.", ["역사 MCC설비 및 분전반 관리상태", "이례사태 대비 비상연락망 구축 및 정비 상태"]]];
 let insertedInspection = '';
+let inspectionSelections = {}, appliedInspections = {};
+const inspectionPeriods = INSPECTIONS.map(() => ({start:'', end:''}));
 const inspectionStatus = document.querySelector('#inspection-status');
-const inspectionRoot = document.querySelector('#inspections');
-INSPECTIONS.forEach(([title, hint, entries], i) => {
-  const fieldset = document.createElement('fieldset');
-  const legend = document.createElement('legend');
-  const label = document.createElement('label');
-  const enabled = document.createElement('input'); enabled.type = 'checkbox'; enabled.id = `inspection-${i}`;
-  label.append(enabled, ` ${title}`); legend.append(label); fieldset.append(legend);
-  const details = document.createElement('details');
-  const summary = document.createElement('summary'); summary.textContent = `기간 및 점검 항목 선택 (${entries.length}개)`; details.append(summary);
-  const note = document.createElement('p'); note.className = 'hint'; note.textContent = hint; details.append(note);
-  const period = document.createElement('div'); period.className = 'check-period';
-  ['시작일', '종료일'].forEach((text,j) => {
-    const dateLabel = document.createElement('label'); dateLabel.textContent = `${text} `;
-    const input = document.createElement('input'); input.type = 'date'; input.id = `inspection-${i}-${j ? 'end' : 'start'}`;
-    dateLabel.append(input); period.append(dateLabel);
-  }); details.append(period);
-  const list = document.createElement('div'); list.className = 'check-list';
-  entries.forEach((text,j) => {
-    const entryLabel = document.createElement('label');
-    const input = document.createElement('input'); input.type = 'checkbox'; input.checked = true; input.id = `inspection-${i}-item-${j}`;
-    entryLabel.append(input, text); list.append(entryLabel);
-  }); details.append(list); fieldset.append(details); inspectionRoot.append(fieldset);
-  enabled.addEventListener('change', () => { details.open = enabled.checked; });
+const inspectionCategory = document.querySelector('#inspection-category');
+const inspectionStart = document.querySelector('#inspection-start');
+const inspectionEnd = document.querySelector('#inspection-end');
+INSPECTIONS.forEach(([title], i) => {
+  const option = document.createElement('option'); option.value = i; option.textContent = title; inspectionCategory.append(option);
 });
-function inspectionText() {
+const inspectionKey = (i,j) => `inspection:${i}:${j}`;
+function renderInspections() {
+  const i = Number(inspectionCategory.value);
+  const [title,hint,entries] = INSPECTIONS[i];
+  document.querySelector('#inspection-hint').textContent = hint + ' / 기간은 해당 연도 공문을 확인한 뒤 입력하세요.';
+  inspectionStart.value = inspectionPeriods[i].start; inspectionEnd.value = inspectionPeriods[i].end;
+  const body = document.querySelector('#inspection-items'); body.replaceChildren();
+  entries.forEach((text,j) => {
+    const row = document.createElement('tr');
+    if (inspectionSelections[i] === j) row.className = 'selected';
+    const number = document.createElement('td'); number.textContent = j+1;
+    const cell = document.createElement('td');
+    const button = document.createElement('button'); button.className = 'item'; button.textContent = text;
+    button.setAttribute('aria-pressed', String(inspectionSelections[i] === j));
+    button.addEventListener('click', () => {
+      if (copyButton.dataset.copying) return;
+      const next = {...inspectionSelections, [i]:j};
+      if (applyInspectionSelection(next)) renderInspections();
+    });
+    cell.append(button);
+    const count = document.createElement('td'); count.textContent = `${counts[inspectionKey(i,j)] || 0}회`;
+    row.append(number,cell,count); body.append(row);
+  });
+  const selected = Object.entries(inspectionSelections).map(([group,j]) => `${INSPECTIONS[group][0]}: ${INSPECTIONS[group][2][j]}`);
+  document.querySelector('#inspection-selected').textContent = selected.length ? '선택한 항목 — ' + selected.join(' / ') : '선택한 안전점검이 없습니다.';
+}
+inspectionCategory.addEventListener('change', renderInspections);
+function inspectionText(selections = inspectionSelections) {
   const blocks = [];
-  INSPECTIONS.forEach(([title, hint, entries],i) => {
-    if (!document.querySelector(`#inspection-${i}`).checked) return;
-    const start = document.querySelector(`#inspection-${i}-start`).value;
-    const end = document.querySelector(`#inspection-${i}-end`).value;
+  Object.entries(selections).forEach(([group,j]) => {
+    const i = Number(group), [title,,entries] = INSPECTIONS[i];
+    const {start,end} = inspectionPeriods[i];
     if ((start && !end) || (!start && end)) throw new Error(`${title}: 시작일과 종료일을 모두 입력하거나 모두 비워주세요.`);
     if (start && start > end) throw new Error(`${title}: 종료일이 시작일보다 빠릅니다.`);
-    const selected = entries.filter((_,j) => document.querySelector(`#inspection-${i}-item-${j}`).checked);
-    if (!selected.length) throw new Error(`${title}: 세부 항목을 하나 이상 선택하세요.`);
     const period = start ? `(${start.replaceAll('-', '.')} ~ ${end.replaceAll('-', '.')})` : i === 4 ? '(매월 1~10일 / 해당 월 공문 확인)' : '';
-    blocks.push(`* ${title}${period}\n${selected.map(text => `  ◦ ${text}`).join('\n')}`);
+    blocks.push(`* ${title}${period}\n  ◦ ${entries[j]}`);
   });
   return blocks.length ? blocks.join('\n') + '\n' : '';
 }
-document.querySelector('#apply-inspections').addEventListener('click', () => {
-  if (copyButton.dataset.copying) return;
-  if (!pending) { inspectionStatus.textContent = '먼저 위험예지훈련 항목을 선택하세요.'; return; }
+function applyInspectionSelection(selections) {
+  if (copyButton.dataset.copying) return false;
   try {
-    const next = inspectionText();
-    const item = DATA.find(item => item[0] === pending.id);
-    const anchor = `* 위험예지훈련 실시(${item[2]})\n  - 작업 후 :`;
-    if (insertedInspection) {
-      if (!output.value.includes(insertedInspection)) throw new Error('기존 안전점검 본문이 직접 수정되어 자동 교체할 수 없습니다. 본문에서 직접 수정하거나 위험예지훈련을 다시 선택하세요.');
-      output.value = output.value.replace(insertedInspection, next);
-    } else {
-      if (!output.value.includes(anchor)) throw new Error('삽입 위치가 수정되어 찾을 수 없습니다. 위험예지훈련을 다시 선택하거나 본문에 직접 추가하세요.');
-      output.value = output.value.replace(anchor, next + anchor);
+    const next = inspectionText(selections);
+    if (pending) {
+      const item = DATA.find(item => item[0] === pending.id);
+      const anchor = `* 위험예지훈련 실시(${item[2]})\n  - 작업 후 :`;
+      if (insertedInspection) {
+        if (!output.value.includes(insertedInspection)) throw new Error('기존 안전점검 본문이 직접 수정되어 자동 교체할 수 없습니다. 위험예지훈련을 다시 선택하거나 본문에서 직접 수정하세요.');
+        output.value = output.value.replace(insertedInspection, next);
+      } else {
+        if (!output.value.includes(anchor)) throw new Error('삽입 위치가 수정되어 찾을 수 없습니다. 위험예지훈련을 다시 선택하세요.');
+        output.value = output.value.replace(anchor, next + anchor);
+      }
+      insertedInspection = next;
+      appliedInspections = {...selections};
     }
-    insertedInspection = next;
-    inspectionStatus.textContent = next ? '선택한 안전점검을 작업 전 안전수칙 아래에 반영했습니다.' : '안전점검을 제외했습니다.';
-  } catch(error) { inspectionStatus.textContent = error.message; }
+    inspectionSelections = {...selections};
+    inspectionStatus.textContent = pending ? '선택한 안전점검을 작업 전 안전수칙 아래에 반영했습니다.' : '안전점검을 선택했습니다. 위험예지훈련을 선택하면 일지에 함께 반영됩니다.';
+    return true;
+  } catch(error) { inspectionStatus.textContent = error.message; return false; }
+}
+[inspectionStart, inspectionEnd].forEach(input => input.addEventListener('change', () => {
+  inspectionPeriods[Number(inspectionCategory.value)] = {start:inspectionStart.value,end:inspectionEnd.value};
+  inspectionStatus.textContent = '기간을 변경했습니다. 기간 변경 반영 버튼을 누르세요.';
+}));
+document.querySelector('#apply-inspections').addEventListener('click', () => applyInspectionSelection(inspectionSelections));
+document.querySelector('#remove-inspection').addEventListener('click', () => {
+  const next = {...inspectionSelections}; delete next[inspectionCategory.value];
+  if (applyInspectionSelection(next)) renderInspections();
 });
+renderInspections();
 function generate(item) {
   if (copyButton.dataset.copying) return;
   let inspection;
   try { inspection = inspectionText(); } catch(error) { inspectionStatus.textContent = error.message; return; }
   insertedInspection = inspection;
-  pending = {id:item[0], category:category.value, confirmed:false};
+  appliedInspections = {...inspectionSelections};
+  pending = {id:item[0], category:category.value, confirmed:false, countedInspections:new Set()};
   output.value = `* 업무 인수인계 및 업무분장, 안전교육
 * 근골격계질환 대비 스트레칭 실시
 * 위험예지훈련 실시(${item[2]})
@@ -162,21 +191,30 @@ async function copyText(text) {
 copyButton.addEventListener('click', async () => {
   if (busy || !pending || !output.value.trim()) return;
   const selected = pending;
+  const inspectionControls = [...document.querySelectorAll('#inspections button, #inspections input, #inspections select')];
+  inspectionControls.forEach(control => control.disabled = true);
   busy = true; copyButton.disabled = true; copyButton.dataset.copying = 'true'; category.disabled = true; output.readOnly = true;
   try {
     await copyText(output.value);
-    if (!selected.confirmed) {
-      const key = keyFor(selected.category, selected.id);
-      const next = {...counts, [key]: usage(selected.category, selected.id) + 1};
+    const keys = Object.entries(appliedInspections).map(([i,j]) => inspectionKey(i,j));
+    const newKeys = keys.filter(key => !selected.countedInspections.has(key));
+    if (!selected.confirmed || newKeys.length) {
+      const next = {...counts};
+      if (!selected.confirmed) {
+        const key = keyFor(selected.category, selected.id); next[key] = (next[key] || 0) + 1;
+      }
+      for (const key of newKeys) next[key] = (next[key] || 0) + 1;
       try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); }
       catch (_) { status.textContent = '복사는 완료했지만 사용 횟수를 저장하지 못했습니다. 저장소 설정을 확인한 후 다시 시도하세요.'; return; }
       counts = next; selected.confirmed = true;
+      newKeys.forEach(key => selected.countedInspections.add(key));
     }
-    render(); copyButton.textContent = '다시 복사 (횟수 유지)';
+    render(); renderInspections(); copyButton.textContent = '다시 복사 (확정한 항목 횟수 유지)';
     status.textContent = `복사 및 확정 완료 | ${selected.category} | 사용 횟수: ${usage(selected.category, selected.id)}회`;
   } catch (_) {
     status.textContent = '자동 복사에 실패했습니다. 본문을 직접 복사하거나 브라우저의 클립보드 권한을 확인하고 다시 시도하세요. 사용 횟수는 증가하지 않았습니다.';
   } finally {
+    inspectionControls.forEach(control => control.disabled = false);
     busy = false; copyButton.disabled = false; delete copyButton.dataset.copying; category.disabled = false; output.readOnly = false;
   }
 });
