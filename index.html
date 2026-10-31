@@ -8,7 +8,7 @@
 :root{font-family:system-ui,-apple-system,"맑은 고딕",sans-serif;color:#172c40;background:#f2f5f8}*{box-sizing:border-box}body{margin:0}main{max-width:1100px;margin:40px auto;padding:0 20px}header{margin-bottom:26px}h1{font-size:28px;margin:8px 0}h2{font-size:19px;margin:0 0 16px}.eyebrow{color:#28685a;font-weight:700;font-size:13px;letter-spacing:2px}p{color:#526779;line-height:1.6}.card{background:white;border:1px solid #dbe4eb;border-radius:16px;padding:24px;margin:18px 0;box-shadow:0 4px 18px #24394b06}.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}select,button,textarea{font:inherit}select{border:1px solid #bacbd7;border-radius:8px;padding:10px;background:white}button{cursor:pointer;border:0;border-radius:8px;padding:12px 18px;background:#176654;color:white;font-weight:600}button:hover{background:#104e40}button:disabled{opacity:.5;cursor:default}.hint{font-size:13px;color:#607588}.table-wrap{max-height:360px;overflow:auto;border:1px solid #e0e7ed;border-radius:10px}table{width:100%;border-collapse:collapse;font-size:14px}th{text-align:left;background:#edf3f6;position:sticky;top:0;z-index:1}td,th{padding:12px 14px;border-bottom:1px solid #e5ebf0}td:first-child{max-width:165px}td:last-child,th:last-child{text-align:center;white-space:nowrap}.item{background:transparent;color:#203c50;text-align:left;padding:4px 0;font-weight:500;line-height:1.6}.item:hover{background:transparent;color:#126b55;text-decoration:underline}tr.selected{background:#e9f6f1}textarea{display:block;width:100%;min-height:255px;resize:vertical;border:1px solid #bacbd7;border-radius:10px;padding:16px;line-height:1.8;color:#203c50;background:#fbfcfd}textarea:focus,select:focus,button:focus-visible{outline:3px solid #72bda9;outline-offset:2px}.actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px}#status{line-height:1.6;font-size:14px;color:#176654}#notice{color:#a43b25;margin-bottom:16px}footer{font-size:13px;color:#637889;padding:0 4px 24px;line-height:1.7}@media(max-width:600px){main{margin:24px auto;padding:0 12px}.card{padding:16px}h1{font-size:24px}td,th{padding:10px 8px}td:first-child{font-size:12px;min-width:70px}textarea{min-height:320px}}
 input{font:inherit}input[type=date]{padding:8px;border:1px solid #bacbd7;border-radius:6px;max-width:100%}.check-period{margin:8px 0}.check-period label{display:inline-block;margin:4px 8px 4px 0}#inspection-status{color:#176654;line-height:1.6}
 #inspection-status:empty,#inspection-selected:empty{display:none}
-#inspection-selected{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.selection-chip{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:8px 12px;background:#e9f6f1;border-radius:10px;font-size:13px;line-height:1.6}.selection-chip span{overflow-wrap:anywhere}.remove-selection{flex-shrink:0;background:transparent;color:#176654;font-size:24px;padding:0 6px;line-height:1.3}.remove-selection:hover{background:#cce8de}
+#risk-selected:empty{display:none}#risk-selected,#inspection-selected{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.selection-chip{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:8px 12px;background:#e9f6f1;border-radius:10px;font-size:13px;line-height:1.6}.selection-chip span{overflow-wrap:anywhere}.remove-selection{flex-shrink:0;background:transparent;color:#176654;font-size:24px;padding:0 6px;line-height:1.3}.remove-selection:hover{background:#cce8de}
 </style>
 </head>
 <body>
@@ -19,6 +19,7 @@ input{font:inherit}input[type=date]{padding:8px;border:1px solid #bacbd7;border-
 <div id="notice" role="alert" hidden></div>
 <div class="bar"><label for="category">분류</label><select id="category"><option>전체</option><option selected>일상</option><option>MCC</option><option>3개월</option><option>6개월</option><option>1년</option><option>수전선로</option></select></div>
 <div class="table-wrap"><table><thead><tr><th scope="col">분류</th><th scope="col">위험예지훈련</th><th scope="col">사용 횟수</th></tr></thead><tbody id="items"></tbody></table></div>
+<div id="risk-selected"></div>
 </section>
 <section class="card" aria-labelledby="inspection-heading">
 <h2 id="inspection-heading">2. 기간별 안전점검 선택 (선택 사항)</h2>
@@ -70,6 +71,15 @@ function render() {
     const count = document.createElement('td'); count.textContent = `${usage(category.value, item[0])}회`;
     row.append(group, risk, count); items.append(row);
   });
+  const selected = document.querySelector('#risk-selected'); selected.replaceChildren();
+  if (pending) {
+    const chip = document.createElement('span'); chip.className = 'selection-chip';
+    const text = document.createElement('span'); text.textContent = DATA.find(item => item[0] === pending.id)[2];
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'remove-selection';
+    remove.textContent = '×'; remove.title = '선택 해제'; remove.setAttribute('aria-label', '위험예지훈련 선택 해제');
+    remove.addEventListener('click', clearRiskSelection);
+    chip.append(text,remove); selected.append(chip);
+  }
 }
 const INSPECTIONS = [["여름철 대비 안전점검", "제공 기간: '25.03.25. ~ 10.15.", ["비상 복구자재ㆍ장비ㆍ비상연락망 정비상태", "각종 교육(안전ㆍ직무ㆍ소방 등) 실시상태", "각 기능실 소화기 등 소방시설물 관리상태", "취약(주의)개소 점검 및 관리상태", "낙뢰 보호장비 및 예방시설물 점검(서지보호기 등)", "현장조치매뉴얼 현행화 및 숙지상태", "전기설비 구조물(변전소,전기실) 균열 및 누수점검", "수․송배전선로 맨홀, 관로 침수 여부 점검", "취약개소(변압기,이행구간,MCC 등) 점검", "보호계전기(GIPAM, 변전설비 등) 설정치 점검"]], ["겨울철 대비 안전점검", "제공 기간: '22.11.15. ~ '23.03.15.", ["비상 복구자재‧장비‧비상연락망 및 개인대응수칙 정비", "각종 교육(안전‧직무‧소방 등) 실시상태", "각 기능실 소화기 등 소방시설물 관리상태", "취약개소 점검 및 관리상태", "비상전원설비(UPS, 축전지 등) 동작상태", "전기설비 구조물(변전소, 전기실) 침하, 균열, 누수점검"]], ["해빙기 대비 안전점검", "제공 기간: '25.01.15. ~ '23.03.31. (연도 확인 필요)", ["비상 복구자재ㆍ수방용장비ㆍ비상연락망 정비", "개인대응수칙 및 현장조치매뉴얼 정비 및 숙지상태", "각종 교육(안전ㆍ직무ㆍ소방 등) 실시상태", "각 기능실 소화기 등 소방시설물 관리상태", "취약(주의)개소 점검 및 관리상태", "전기설비 구조물(변전소) 균열, 누수점검", "수전선로 맨홀 침하 여부 점검", "기타"]], ["풍수해 대비 안전점검", "제공 기간: '25.05.20. ~ 10.15.", ["비상 복구장비‧자재 관리 및 동작상태 점검", "취약(주의)개소점검 및 관리상태 점검", "기능실 구조물 균열․누수 및 배수로 상태 점검", "낙뢰 보호 장비 및 예방시설물 점검(피뢰기, 서지보호기 등)", "수․송배전선로 관로 및 맨홀침수 여부 점검", "비상연락망 및 현장조치 매뉴얼 현행화 상태점검", "우수기 취약 MCC반 점검"]], ["시설물 일제 안전점검", "매월 1~10일 / 공문 확인: N월 전기통신분야 시설물 일제 안전점검 시행", ["배전반 각종 절연애자 균열 및 파손 여부", "변성기 외관 상태 및 온도라벨 상태", "변압기 소음 및 온도 이상유무", "정류기 각종 제어기능 이상유무", "서지보호장치 전원램프 및 배선 취부상태", "충전장치 부동 및 균등전압 설정값 상태", "소공간 자동소화장치 약제 실린더 압력상태", "원격소장치 표시등 점등상태 및 통신상태", "변전소 환기설비 정상가동 여부", "변전소 콘센트, 조명등기구 등 취부상태 등", "변전소 구축물 균열 및 누수 여부", "접지선 배열 및 단자 조임 상태", "변전소(제한구역) 출입문 잠금장치 상태"]], ["설 연휴 대비 자체 안전점검", "제공 기간: '25.01.07. ~ 01.17.", ["역사 MCC설비 및 분전반 관리상태", "이례사태 대비 비상연락망 구축 및 정비 상태"]]];
 let insertedInspection = '';
@@ -149,7 +159,7 @@ function applyInspectionSelection(selections) {
       appliedInspections = {...selections};
     }
     inspectionSelections = {...selections};
-    inspectionStatus.textContent = pending ? '반영 완료' : '선택 완료';
+    inspectionStatus.textContent = '';
     return true;
   } catch(error) { inspectionStatus.textContent = error.message; return false; }
 }
@@ -178,11 +188,14 @@ ${inspection}* 위험예지훈련 실시(${item[2]})
   status.textContent = `미확정 | ${pending.category} | 현재 사용 횟수: ${usage(pending.category, pending.id)}회`;
   render();
 }
-category.addEventListener('change', () => {
-  insertedInspection = ''; pending = null; output.value = ''; copyButton.disabled = true;
-  status.textContent = '';
+function clearRiskSelection() {
+  if (copyButton.dataset.copying) return;
+  insertedInspection = ''; appliedInspections = {}; pending = null; output.value = ''; copyButton.disabled = true;
+  copyButton.textContent = '복사 및 확정 (+1회)';
+  status.textContent = ''; inspectionStatus.textContent = '';
   render();
-});
+}
+category.addEventListener('change', clearRiskSelection);
 async function copyText(text) {
   if (navigator.clipboard && window.isSecureContext) {
     try { await navigator.clipboard.writeText(text); return; } catch (_) { /* Try local-file fallback. */ }
