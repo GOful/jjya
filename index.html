@@ -22,8 +22,7 @@ input{font:inherit}input[type=date]{padding:8px;border:1px solid #bacbd7;border-
 <section class="card" aria-labelledby="inspection-heading">
 <h2 id="inspection-heading">2. 기간별 안전점검 선택 (선택 사항)</h2>
 <div id="inspections">
-<div class="bar"><label for="inspection-category">점검 종류</label><select id="inspection-category"></select></div>
-<div class="check-period"><label>시작일 <input type="date" id="inspection-start"></label><label>종료일 <input type="date" id="inspection-end"></label></div>
+<div class="bar"><label for="inspection-category">점검 종류</label><select id="inspection-category"></select><label>시작일 <input type="date" id="inspection-start"></label><label>종료일 <input type="date" id="inspection-end"></label></div>
 <div class="table-wrap"><table><thead><tr><th scope="col">번호</th><th scope="col">안전점검 항목</th><th scope="col">사용 횟수</th></tr></thead><tbody id="inspection-items"></tbody></table></div>
 <p id="inspection-selected" class="hint"></p>
 <div class="actions"><button id="apply-inspections" type="button">기간 변경 반영</button><button id="remove-inspection" type="button">현재 종류 선택 해제</button></div>
