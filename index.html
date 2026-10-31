@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>일일업무일지 생성기</title>
+<style>
+:root{font-family:system-ui,-apple-system,"맑은 고딕",sans-serif;color:#172c40;background:#f2f5f8}*{box-sizing:border-box}body{margin:0}main{max-width:1100px;margin:40px auto;padding:0 20px}header{margin-bottom:26px}h1{font-size:28px;margin:8px 0}h2{font-size:19px;margin:0 0 16px}.eyebrow{color:#28685a;font-weight:700;font-size:13px;letter-spacing:2px}p{color:#526779;line-height:1.6}.card{background:white;border:1px solid #dbe4eb;border-radius:16px;padding:24px;margin:18px 0;box-shadow:0 4px 18px #24394b06}.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}select,button,textarea{font:inherit}select{border:1px solid #bacbd7;border-radius:8px;padding:10px;background:white}button{cursor:pointer;border:0;border-radius:8px;padding:12px 18px;background:#176654;color:white;font-weight:600}button:hover{background:#104e40}button:disabled{opacity:.5;cursor:default}.hint{font-size:13px;color:#607588}.table-wrap{max-height:360px;overflow:auto;border:1px solid #e0e7ed;border-radius:10px}table{width:100%;border-collapse:collapse;font-size:14px}th{text-align:left;background:#edf3f6;position:sticky;top:0;z-index:1}td,th{padding:12px 14px;border-bottom:1px solid #e5ebf0}td:first-child{max-width:165px}td:last-child,th:last-child{text-align:center;white-space:nowrap}.item{background:transparent;color:#203c50;text-align:left;padding:4px 0;font-weight:500;line-height:1.6}.item:hover{background:transparent;color:#126b55;text-decoration:underline}tr.selected{background:#e9f6f1}textarea{display:block;width:100%;min-height:255px;resize:vertical;border:1px solid #bacbd7;border-radius:10px;padding:16px;line-height:1.8;color:#203c50;background:#fbfcfd}textarea:focus,select:focus,button:focus-visible{outline:3px solid #72bda9;outline-offset:2px}.actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px}#status{line-height:1.6;font-size:14px;color:#176654}#notice{color:#a43b25;margin-bottom:16px}footer{font-size:13px;color:#637889;padding:0 4px 24px;line-height:1.7}@media(max-width:600px){main{margin:24px auto;padding:0 12px}.card{padding:16px}h1{font-size:24px}td,th{padding:10px 8px}td:first-child{font-size:12px;min-width:70px}textarea{min-height:320px}}
+</style>
+</head>
+<body>
+<main>
+<header><span class="eyebrow">DAILY WORK LOG</span><h1>일일업무일지 생성기</h1><p>위험예지훈련을 선택하고, 오늘의 업무일지를 완성하세요.</p></header>
+<section class="card" aria-labelledby="list-heading">
+<h2 id="list-heading">1. 위험예지훈련 선택</h2>
+<div id="notice" role="alert" hidden></div>
+<div class="bar"><label for="category">분류</label><select id="category"><option>전체</option><option>MCC</option><option>일상</option><option>수전선로</option><option>3개월</option><option>6개월</option><option>1년</option></select><span class="hint">항목을 누르면 업무일지가 생성됩니다. · 번호순 표시</span></div>
+<div class="table-wrap"><table><thead><tr><th scope="col">분류</th><th scope="col">위험예지훈련</th><th scope="col">사용 횟수</th></tr></thead><tbody id="items"></tbody></table></div>
+</section>
+<section class="card" aria-labelledby="output-heading"><h2 id="output-heading">2. 업무일지 확인 및 복사</h2>
+<label class="hint" for="output">필요한 내용을 직접 수정한 뒤 복사할 수 있습니다.</label>
+<textarea id="output" placeholder="위 목록에서 위험예지훈련을 선택하세요."></textarea>
+<div class="actions"><button id="copy" disabled>복사 및 확정 (+1회)</button><span id="status" role="status" aria-live="polite">위험예지훈련 항목을 선택하세요.</span></div>
+</section>
+<footer>사용 횟수는 분류별로 따로 관리되며, 현재 브라우저에 저장됩니다.<br>브라우저 데이터를 삭제하면 기록이 사라집니다. 다른 기기나 브라우저와 자동으로 공유되지 않습니다.</footer>
+</main>
+<script>
+'use strict';
+const DATA = [[1, "일상", "단자대 볼트 조임시 돌출부에 의한 긁힘", "적절한 공구 사용, 작업전 안전교육, 안전모, 절연장갑 착용"], [2, "일상", "분전반 쇄정", "모든 작업후 및 일상점검 시 분전반 쇄정확인 철저"], [3, "일상", "전기,기계기구를 이용한 작업시 각종 안전사고", "안전화, 안전모 착용, 작업전 안전교육, 보안경 착용, 그라인더·고속절단기 작업안전수칙 준수"], [4, "일상", "조작반 오조작에 의한 전원 투입", "작업 전 안전교육, 작업 전 계통 숙지, 작업중 표지판 부착, 작업안전수칙 준수"], [5, "일상", "모선,케이블헤드, 볼트 등 돌출부 충돌", "작업전 안전교육, 안전모, 절연장갑 착용, 전방주시 철저"], [6, "일상", "진공 인터럽터 절연불량으로 인한 가압", "작업전 안전교육, 절연장갑 및 절연화 착용, 작업개소 전원차단 및 검전 실시, 절연상태 확인, 작업안전수칙 준수"], [7, "일상", "교육훈련 및 절차 미준수", "직무교육 실시, 비상대응훈련 실시 사고사례 교육 실시"], [8, "일상", "배전반내 공간 협소 및 돌출부로 인한 외상", "작업전 안전교육, 안전모, 절연장갑 착용, 전방주시 철저"], [9, "일상", "점검중 활선 충전부 접근 및 접촉", "작업전 안전교육, 작업개소 전원차단 및 작업중 표지설치, 절연장갑착용"], [10, "일상,3개월,6개월,1년", "분전반 내부작업시 날카로운 부위에 긁힘", "작업전 안전교육, 안전모, 절연화, 절연장갑 착용, 내부 돌출부 및 날카로운 부위 확인, 무리한 작업자세 금지"], [11, "일상,3개월,6개월,1년", "수동 및 자동 오취급에 의한 감전사고", "작업 전 안전교육, 안전작업을 위한 접지 설치, 작업안전수칙 준수"], [12, "일상,3개월,6개월,1년", "작업구간이 협소하여 구조물과 충돌 발생", "작업전 안전교육, 안전모 착용, 작업공간 및 주변 돌출부 확인, 이동 동선 확보, 전방주시 철저"], [13, "3개월", "평활용 콘덴서 잔류전하에 의한 전류접촉", "작업전 안전교육, 계통숙지, 절연장갑착용,접촉전방전실시"], [14, "3개월", "축전지 단자전압 측정시 단락으로 인한 화상", "작업전 안전교육, 절연보호덮개취부, 절연장갑착용, 전기안전수칙준수"], [15, "3개월,6개월,1년", "정류부, 축전지 등 충전부 활선 접촉", "작업전 안전교육, 절연보호덮개취부, 절연장갑착용,전기안전수칙준수"], [16, "6개월,1년", "인출작업중 차단기 중량으로 인한 손, 발 끼임", "작업전 안전교육, 안전모, 절연장갑, 절연화 착용, 중량물 취급 매뉴얼 숙지"], [17, "수전선로", "맨홀, 트라프 등 중량물에 의한 손, 발 끼임", "작업전 안전교육, 안전모, 안전화, 보호장갑 착용, 중량물 취급 안전수칙 준수, 2인 1조 작업 및 협착 주의"], [18, "MCC", "MCC반 주변설비에 부딪힘", "작업전안전교육 및 사전위험 요소 파악, 안전모착용"], [19, "MCC", "MCC반 미 쇄정", "MCC반 쇄정상태 확인, 잠금장치 파손여부 확인"], [20, "MCC", "MCC반 내부 점검시 날카로운 부위에 긁힘", "안전모, 절연장갑 착용, 내부 돌출부 및 날카로운 부위 확인, 작업안전수칙 준수"], [21, "MCC", "MCC 오동작으로 인한 전원 투입", "작업전 안전교육, 작업개소 전원차단 및 작업중 표지설치, 절연장갑 착용, 전기안전수칙준수"], [22, "MCC", "콘덴서 폭발", "안전모, 보안경, 절연장갑 착용, 콘덴서 외관 및 이상징후 확인, 잔류전하 방전 및 무전압 확인"], [23, "MCC", "콘덴서 잔류전하에 의한 전류 접촉", "작업전 안전교육, 작업개소 전원차단 및 작업중 표지설치, 절연장갑착용, 접촉전방전실시"]];
+const STORAGE_KEY = 'jjya.usage-counts.v1';
+const category = document.querySelector('#category');
+const items = document.querySelector('#items');
+const output = document.querySelector('#output');
+const copyButton = document.querySelector('#copy');
+const status = document.querySelector('#status');
+const notice = document.querySelector('#notice');
+let counts = {}, pending = null, busy = false;
+function warn(message) { notice.hidden = false; notice.textContent = message; }
+try {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved !== null) {
+    const parsed = JSON.parse(saved);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || Object.values(parsed).some(v => !Number.isSafeInteger(v) || v < 0)) throw new Error('invalid data');
+    counts = parsed;
+  }
+} catch (error) {
+  warn('사용 횟수를 읽을 수 없습니다. 브라우저의 저장소 설정을 확인하세요. 기존 기록 보호를 위해 확정을 중단합니다.');
+  busy = true;
+}
+const keyFor = (group, id) => group === '전체' ? String(id) : `${group}|${id}`;
+const usage = (group, id) => counts[keyFor(group, id)] || 0;
+function render() {
+  items.replaceChildren();
+  DATA.filter(item => category.value === '전체' || item[1].split(',').includes(category.value)).forEach(item => {
+    const row = document.createElement('tr');
+    if (pending && pending.id === item[0] && pending.category === category.value) row.className = 'selected';
+    const group = document.createElement('td'); group.textContent = item[1];
+    const risk = document.createElement('td');
+    const button = document.createElement('button'); button.className = 'item'; button.textContent = item[2]; button.addEventListener('click', () => generate(item)); risk.append(button);
+    const count = document.createElement('td'); count.textContent = `${usage(category.value, item[0])}회`;
+    row.append(group, risk, count); items.append(row);
+  });
+}
+function generate(item) {
+  if (copyButton.dataset.copying) return;
+  pending = {id:item[0], category:category.value, confirmed:false};
+  output.value = `* 업무 인수인계 및 업무분장, 안전교육
+* 근골격계질환 대비 스트레칭 실시
+* 위험예지훈련 실시(${item[2]})
+  - 작업 전 : ${item[3]}
+* 위험예지훈련 실시(${item[2]})
+  - 작업 후 : 특이사항 없음
+* 사무실 정리정돈 및 업무 인수인계`;
+  copyButton.disabled = busy;
+  copyButton.textContent = '복사 및 확정 (+1회)';
+  status.textContent = `미확정 | ${pending.category} | 현재 사용 횟수: ${usage(pending.category, pending.id)}회`;
+  render();
+}
+category.addEventListener('change', () => {
+  pending = null; output.value = ''; copyButton.disabled = true;
+  status.textContent = `${category.value} 분류를 선택했습니다. 항목을 선택하세요.`;
+  render();
+});
+async function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    try { await navigator.clipboard.writeText(text); return; } catch (_) { /* Try local-file fallback. */ }
+  }
+  output.focus(); output.select();
+  if (!document.execCommand('copy')) throw new Error('clipboard unavailable');
+}
+copyButton.addEventListener('click', async () => {
+  if (busy || !pending || !output.value.trim()) return;
+  const selected = pending;
+  busy = true; copyButton.disabled = true; copyButton.dataset.copying = 'true'; category.disabled = true; output.readOnly = true;
+  try {
+    await copyText(output.value);
+    if (!selected.confirmed) {
+      const key = keyFor(selected.category, selected.id);
+      const next = {...counts, [key]: usage(selected.category, selected.id) + 1};
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); }
+      catch (_) { status.textContent = '복사는 완료했지만 사용 횟수를 저장하지 못했습니다. 저장소 설정을 확인한 후 다시 시도하세요.'; return; }
+      counts = next; selected.confirmed = true;
+    }
+    render(); copyButton.textContent = '다시 복사 (횟수 유지)';
+    status.textContent = `복사 및 확정 완료 | ${selected.category} | 사용 횟수: ${usage(selected.category, selected.id)}회`;
+  } catch (_) {
+    status.textContent = '자동 복사에 실패했습니다. 본문을 직접 복사하거나 브라우저의 클립보드 권한을 확인하고 다시 시도하세요. 사용 횟수는 증가하지 않았습니다.';
+  } finally {
+    busy = false; copyButton.disabled = false; delete copyButton.dataset.copying; category.disabled = false; output.readOnly = false;
+  }
+});
+render();
+</script>
+</body>
+</html>
