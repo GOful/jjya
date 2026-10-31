@@ -7,36 +7,33 @@
 <style>
 :root{font-family:system-ui,-apple-system,"맑은 고딕",sans-serif;color:#172c40;background:#f2f5f8}*{box-sizing:border-box}body{margin:0}main{max-width:1100px;margin:40px auto;padding:0 20px}header{margin-bottom:26px}h1{font-size:28px;margin:8px 0}h2{font-size:19px;margin:0 0 16px}.eyebrow{color:#28685a;font-weight:700;font-size:13px;letter-spacing:2px}p{color:#526779;line-height:1.6}.card{background:white;border:1px solid #dbe4eb;border-radius:16px;padding:24px;margin:18px 0;box-shadow:0 4px 18px #24394b06}.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}select,button,textarea{font:inherit}select{border:1px solid #bacbd7;border-radius:8px;padding:10px;background:white}button{cursor:pointer;border:0;border-radius:8px;padding:12px 18px;background:#176654;color:white;font-weight:600}button:hover{background:#104e40}button:disabled{opacity:.5;cursor:default}.hint{font-size:13px;color:#607588}.table-wrap{max-height:360px;overflow:auto;border:1px solid #e0e7ed;border-radius:10px}table{width:100%;border-collapse:collapse;font-size:14px}th{text-align:left;background:#edf3f6;position:sticky;top:0;z-index:1}td,th{padding:12px 14px;border-bottom:1px solid #e5ebf0}td:first-child{max-width:165px}td:last-child,th:last-child{text-align:center;white-space:nowrap}.item{background:transparent;color:#203c50;text-align:left;padding:4px 0;font-weight:500;line-height:1.6}.item:hover{background:transparent;color:#126b55;text-decoration:underline}tr.selected{background:#e9f6f1}textarea{display:block;width:100%;min-height:255px;resize:vertical;border:1px solid #bacbd7;border-radius:10px;padding:16px;line-height:1.8;color:#203c50;background:#fbfcfd}textarea:focus,select:focus,button:focus-visible{outline:3px solid #72bda9;outline-offset:2px}.actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:16px}#status{line-height:1.6;font-size:14px;color:#176654}#notice{color:#a43b25;margin-bottom:16px}footer{font-size:13px;color:#637889;padding:0 4px 24px;line-height:1.7}@media(max-width:600px){main{margin:24px auto;padding:0 12px}.card{padding:16px}h1{font-size:24px}td,th{padding:10px 8px}td:first-child{font-size:12px;min-width:70px}textarea{min-height:320px}}
 input{font:inherit}input[type=date]{padding:8px;border:1px solid #bacbd7;border-radius:6px;max-width:100%}.check-period{margin:8px 0}.check-period label{display:inline-block;margin:4px 8px 4px 0}#inspection-status{color:#176654;line-height:1.6}
+#inspection-status:empty,#inspection-selected:empty{display:none}
 </style>
 </head>
 <body>
 <main>
-<header><span class="eyebrow">DAILY WORK LOG</span><h1>일일업무일지 생성기</h1><p>위험예지훈련을 선택하고, 오늘의 업무일지를 완성하세요.</p></header>
+<header><h1>일일업무일지 생성기</h1></header>
 <section class="card" aria-labelledby="list-heading">
 <h2 id="list-heading">1. 위험예지훈련 선택</h2>
 <div id="notice" role="alert" hidden></div>
-<div class="bar"><label for="category">분류</label><select id="category"><option>전체</option><option selected>일상</option><option>MCC</option><option>3개월</option><option>6개월</option><option>1년</option><option>수전선로</option></select><span class="hint">항목을 누르면 업무일지가 생성됩니다. · 번호순 표시</span></div>
+<div class="bar"><label for="category">분류</label><select id="category"><option>전체</option><option selected>일상</option><option>MCC</option><option>3개월</option><option>6개월</option><option>1년</option><option>수전선로</option></select></div>
 <div class="table-wrap"><table><thead><tr><th scope="col">분류</th><th scope="col">위험예지훈련</th><th scope="col">사용 횟수</th></tr></thead><tbody id="items"></tbody></table></div>
 </section>
 <section class="card" aria-labelledby="inspection-heading">
 <h2 id="inspection-heading">2. 기간별 안전점검 선택 (선택 사항)</h2>
-<p class="hint">점검 종류를 고른 뒤 목록의 항목을 누르면 일지에 반영됩니다. 종류별로 한 항목씩 선택할 수 있으며, 복사 및 확정 시 선택한 항목의 사용 횟수가 증가합니다.</p>
 <div id="inspections">
-<div class="bar"><label for="inspection-category">점검 종류</label><select id="inspection-category"></select><span class="hint">항목별 사용 횟수 · 번호순 표시</span></div>
-<p id="inspection-hint" class="hint"></p>
+<div class="bar"><label for="inspection-category">점검 종류</label><select id="inspection-category"></select></div>
 <div class="check-period"><label>시작일 <input type="date" id="inspection-start"></label><label>종료일 <input type="date" id="inspection-end"></label></div>
 <div class="table-wrap"><table><thead><tr><th scope="col">번호</th><th scope="col">안전점검 항목</th><th scope="col">사용 횟수</th></tr></thead><tbody id="inspection-items"></tbody></table></div>
 <p id="inspection-selected" class="hint"></p>
 <div class="actions"><button id="apply-inspections" type="button">기간 변경 반영</button><button id="remove-inspection" type="button">현재 종류 선택 해제</button></div>
 </div>
-<p id="inspection-status" role="status" aria-live="polite">작업 전 안전수칙 아래, 작업 후 위험예지훈련 위에 추가됩니다.</p>
+<p id="inspection-status" role="status" aria-live="polite"></p>
 </section>
 <section class="card" aria-labelledby="output-heading"><h2 id="output-heading">3. 업무일지 확인 및 복사</h2>
-<label class="hint" for="output">필요한 내용을 직접 수정한 뒤 복사할 수 있습니다.</label>
-<textarea id="output" placeholder="위 목록에서 위험예지훈련을 선택하세요."></textarea>
-<div class="actions"><button id="copy" disabled>복사 및 확정 (+1회)</button><span id="status" role="status" aria-live="polite">위험예지훈련 항목을 선택하세요.</span></div>
+<textarea id="output" aria-label="업무일지 본문"></textarea>
+<div class="actions"><button id="copy" disabled>복사 및 확정 (+1회)</button><span id="status" role="status" aria-live="polite"></span></div>
 </section>
-<footer>사용 횟수는 분류별로 따로 관리되며, 현재 브라우저에 저장됩니다.<br>브라우저 데이터를 삭제하면 기록이 사라집니다. 다른 기기나 브라우저와 자동으로 공유되지 않습니다.</footer>
 </main>
 <script>
 'use strict';
@@ -90,7 +87,6 @@ const inspectionKey = (i,j) => `inspection:${i}:${j}`;
 function renderInspections() {
   const i = Number(inspectionCategory.value);
   const [title,hint,entries] = INSPECTIONS[i];
-  document.querySelector('#inspection-hint').textContent = hint + ' / 기간은 해당 연도 공문을 확인한 뒤 입력하세요.';
   inspectionStart.value = inspectionPeriods[i].start; inspectionEnd.value = inspectionPeriods[i].end;
   const body = document.querySelector('#inspection-items'); body.replaceChildren();
   entries.forEach((text,j) => {
@@ -110,7 +106,7 @@ function renderInspections() {
     row.append(number,cell,count); body.append(row);
   });
   const selected = Object.entries(inspectionSelections).map(([group,j]) => `${INSPECTIONS[group][0]}: ${INSPECTIONS[group][2][j]}`);
-  document.querySelector('#inspection-selected').textContent = selected.length ? '선택한 항목 — ' + selected.join(' / ') : '선택한 안전점검이 없습니다.';
+  document.querySelector('#inspection-selected').textContent = selected.length ? '선택한 항목 — ' + selected.join(' / ') : '';
 }
 inspectionCategory.addEventListener('change', renderInspections);
 function inspectionText(selections = inspectionSelections) {
@@ -143,13 +139,13 @@ function applyInspectionSelection(selections) {
       appliedInspections = {...selections};
     }
     inspectionSelections = {...selections};
-    inspectionStatus.textContent = pending ? '선택한 안전점검을 작업 전 안전수칙 아래에 반영했습니다.' : '안전점검을 선택했습니다. 위험예지훈련을 선택하면 일지에 함께 반영됩니다.';
+    inspectionStatus.textContent = pending ? '반영 완료' : '선택 완료';
     return true;
   } catch(error) { inspectionStatus.textContent = error.message; return false; }
 }
 [inspectionStart, inspectionEnd].forEach(input => input.addEventListener('change', () => {
   inspectionPeriods[Number(inspectionCategory.value)] = {start:inspectionStart.value,end:inspectionEnd.value};
-  inspectionStatus.textContent = '기간을 변경했습니다. 기간 변경 반영 버튼을 누르세요.';
+  inspectionStatus.textContent = '기간 변경 미반영';
 }));
 document.querySelector('#apply-inspections').addEventListener('click', () => applyInspectionSelection(inspectionSelections));
 document.querySelector('#remove-inspection').addEventListener('click', () => {
@@ -178,7 +174,7 @@ ${inspection}* 위험예지훈련 실시(${item[2]})
 }
 category.addEventListener('change', () => {
   insertedInspection = ''; pending = null; output.value = ''; copyButton.disabled = true;
-  status.textContent = `${category.value} 분류를 선택했습니다. 항목을 선택하세요.`;
+  status.textContent = '';
   render();
 });
 async function copyText(text) {
@@ -209,7 +205,7 @@ copyButton.addEventListener('click', async () => {
       counts = next; selected.confirmed = true;
       newKeys.forEach(key => selected.countedInspections.add(key));
     }
-    render(); renderInspections(); copyButton.textContent = '다시 복사 (확정한 항목 횟수 유지)';
+    render(); renderInspections(); copyButton.textContent = '다시 복사';
     status.textContent = `복사 및 확정 완료 | ${selected.category} | 사용 횟수: ${usage(selected.category, selected.id)}회`;
   } catch (_) {
     status.textContent = '자동 복사에 실패했습니다. 본문을 직접 복사하거나 브라우저의 클립보드 권한을 확인하고 다시 시도하세요. 사용 횟수는 증가하지 않았습니다.';
