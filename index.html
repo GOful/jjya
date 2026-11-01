@@ -16,14 +16,14 @@ input{font:inherit}input[type=date]{padding:8px;border:1px solid #bacbd7;border-
 <main>
 <header><h1>일일업무일지 생성기</h1></header>
 <section class="card" aria-labelledby="list-heading">
-<h2 id="list-heading">1. 위험예지훈련 선택</h2>
+<h2 id="list-heading">1. 위험예지훈련</h2>
 <div id="notice" role="alert" hidden></div>
 <div class="bar"><label for="category">분류</label><select id="category"><option>전체</option><option selected>일상</option><option>MCC</option><option>3개월</option><option>6개월</option><option>1년</option><option>수전선로</option></select></div>
 <div class="table-wrap"><table><thead><tr><th scope="col">분류</th><th scope="col">위험예지훈련</th><th scope="col">사용 횟수</th></tr></thead><tbody id="items"></tbody></table></div>
 <div id="risk-selected"></div>
 </section>
 <section class="card" aria-labelledby="inspection-heading">
-<h2 id="inspection-heading">2. 기간별 안전점검 선택 (선택 사항)</h2>
+<h2 id="inspection-heading">2. 기간별 안전점검</h2>
 <div id="inspections">
 <div class="bar"><label for="inspection-category">점검 종류</label><select id="inspection-category"></select><label>시작일 <input type="date" id="inspection-start"></label><label>종료일 <input type="date" id="inspection-end"></label></div>
 <div class="table-wrap"><table><thead><tr><th scope="col">번호</th><th scope="col">안전점검 항목</th><th scope="col">사용 횟수</th></tr></thead><tbody id="inspection-items"></tbody></table></div>
@@ -32,7 +32,7 @@ input{font:inherit}input[type=date]{padding:8px;border:1px solid #bacbd7;border-
 <p id="inspection-status" role="status" aria-live="polite"></p>
 </section>
 <section class="card" aria-labelledby="misc-heading">
-<h2 id="misc-heading">3. 기타업무(선택)</h2>
+<h2 id="misc-heading">3. 기타업무</h2>
 <div id="misc-items" role="group" aria-label="기타업무 선택"></div>
 <div id="misc-selected"></div><p id="misc-status" role="status" aria-live="polite"></p>
 </section>
