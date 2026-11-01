@@ -56,16 +56,12 @@
       return value.user;
     },
     async user() { if (!session) return null; return request('/auth/v1/user', {token:await token()}); },
-    async logout() {
-      try { if (session) await request('/auth/v1/logout',{method:'POST',token:await token()}); } finally { keep(null); }
-    },
     async snapshot() {
-      const [catalog, counts, logs] = await Promise.all([
+      const [catalog, counts] = await Promise.all([
         this.readCatalog(),
-        db('rpc/shared_usage_counts', {method:'POST',body:{}}),
-        this.logs()
+        db('rpc/shared_usage_counts', {method:'POST',body:{}})
       ]);
-      return {catalog,counts,logs};
+      return {catalog,counts};
     },
     async readCatalog() {
       try { return await db('rpc/get_app_catalog',{method:'POST',body:{}}); }
@@ -91,7 +87,6 @@
       }
     },
     async counts() { return db('rpc/shared_usage_counts',{method:'POST',body:{}}); },
-    async logs() { return db('work_logs?select=id,version,updated_at&order=updated_at.desc&limit=30'); },
     async load(id) {
       const rows = await db(`work_logs?select=*&id=eq.${encodeURIComponent(id)}`);
       if (!rows.length) throw new Error('저장된 일지가 없습니다.');
@@ -99,7 +94,6 @@
     },
     async save({id,version,body,state,keys = null}) {
       return db('rpc/save_work_log',{method:'POST',body:{p_id:id,p_expected_version:version,p_body:body,p_state:state,p_keys:keys}});
-    },
-    async catalog(version,data) { return db('rpc/save_app_catalog',{method:'POST',body:{p_expected_version:version,p_data:data}}); }
+    }
   };
 })();

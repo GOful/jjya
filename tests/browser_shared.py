@@ -68,97 +68,71 @@ def respond(route):
 
 with sync_playwright() as p:
     browser = p.chromium.launch(executable_path='/usr/bin/chromium', headless=True, args=['--no-sandbox'])
-    first_context = browser.new_context(permissions=['clipboard-read','clipboard-write'])
-    second_context = browser.new_context(permissions=['clipboard-read','clipboard-write'])
-    pages = [first_context.new_page(),second_context.new_page()]
-    errors = []
-    for page in pages:
-        page.route('**/supabase-config.js', lambda route: route.fulfill(content_type='application/javascript', body=(ROOT/'supabase-config.js').read_text().replace('enabled: false','enabled: true')))
-        page.route('https://*.supabase.co/**', respond)
-        page.on('pageerror', lambda error: errors.append(str(error)))
-    first, second = pages
-    url = f'http://127.0.0.1:{server.server_port}/index.html'
-    first.goto(url); first.wait_for_function("!document.querySelector('#workspace').disabled")
-    assert first.locator('#login-form').count() == 0
+    contexts=[browser.new_context(permissions=['clipboard-read','clipboard-write']) for _ in range(2)]
+    first,second=[context.new_page() for context in contexts]
+    errors=[]
+    for page in [first,second]:
+        page.route('https://*.supabase.co/**',respond)
+        page.on('pageerror',lambda error:errors.append(str(error)))
+    url=f'http://127.0.0.1:{server.server_port}/index.html'
+    first.goto(url);first.wait_for_function("!document.querySelector('#workspace').disabled")
+    assert first.locator('#shared-tools,#save-log,#catalog-dialog,#cloud-mode').count()==0
+    assert first.locator('#last-copied').inner_text()==''
     first.locator('#items button').first.click()
     first.locator('#inspection-items button').first.click()
     first.locator('#inspection-start').fill('2026-03-25');first.locator('#inspection-end').fill('2026-10-15')
-    first.locator('#output-heading').click()
-    first.locator('#misc-select-0').click()
+    first.locator('#output-heading').click();first.locator('#misc-select-0').click()
     first.locator('#output').fill(first.locator('#output').input_value()+'\n공유 메모')
-    first.locator('#save-log').click()
-    first.wait_for_function("document.querySelector('#cloud-status').textContent.includes('공유 저장 ·')")
-    assert counts == {}, 'Save must not increment copy counts'
-    second.goto(url);second.wait_for_function("!document.querySelector('#workspace').disabled")
-    assert second.locator('#output').input_value().endswith('공유 메모')
-    assert second.locator('#inspection-start').input_value() == '2026-03-25'
-    # Two independent visitors restore one log; event keys ensure deduplication.
-    second.locator('#copy').click();second.wait_for_function("!document.querySelector('#copy').disabled")
-    assert counts == {'일상|1':1,'inspection:0:0':1}
-    second.locator('#copy').click();second.wait_for_function("!document.querySelector('#copy').disabled")
-    assert counts['일상|1'] == 1
-    # A newer saved-only draft must not replace the last copied log on entry.
-    second.locator('#items button').nth(1).click()
-    second.locator('#output').fill(second.locator('#output').input_value()+'\n미복사 초안')
-    second.locator('#save-log').click();second.wait_for_function("!document.querySelector('#workspace').disabled")
-    third=browser.new_page()
-    third.route('https://*.supabase.co/**',respond)
-    third.goto(url);third.wait_for_function("!document.querySelector('#workspace').disabled")
-    assert third.locator('#output').input_value().endswith('공유 메모')
-    assert third.locator('#items button[aria-pressed=true]').inner_text()=='단자대 볼트 조임시 돌출부에 의한 긁힘'
-    assert third.locator('#inspection-items button[aria-pressed=true]').count()==1
-    assert third.locator('#misc-select-0').get_attribute('aria-pressed')=='true'
-    assert third.locator('#inspection-start').input_value()=='2026-03-25'
-    third.close()
-    # First visitor has an outdated version and cannot overwrite the other visitor.
-    first.locator('#output').fill(first.locator('#output').input_value()+'\n충돌 수정')
-    first.locator('#save-log').click()
-    first.wait_for_function("document.querySelector('#cloud-status').textContent.includes('다른 사람이 먼저 저장')")
-    assert not next(iter(logs.values()))['body'].endswith('충돌 수정')
-    first.on('dialog',lambda dialog:dialog.accept())
-    first.locator('#load-log').click()
-    first.wait_for_function("!document.querySelector('#workspace').disabled")
     first.locator('#copy').click();first.wait_for_function("!document.querySelector('#copy').disabled")
-    assert counts['일상|1'] == 1
-    first.locator('#edit-catalog').click();first.locator('#catalog-dialog').wait_for(state='visible')
-    first.locator('#catalog-content').fill('공유 수정된 위험예지훈련')
-    first.locator('#save-catalog').click()
-    first.wait_for_function("document.querySelector('#catalog-status').textContent.includes('저장됨')")
-    first.locator('#close-catalog').click()
-    second.on('dialog',lambda dialog:dialog.accept())
+    assert first.locator('#last-copied').inner_text().startswith('최근 복사 · ')
+    assert counts=={'일상|1':1,'inspection:0:0':1}
+    assert first.evaluate('navigator.clipboard.readText()')==first.locator('#output').input_value()
+    copied_body=first.locator('#output').input_value()
+    copied_date=first.locator('#last-copied').inner_text()
+    first.locator('#copy').click();first.wait_for_function("!document.querySelector('#copy').disabled")
+    assert counts['일상|1']==1
+    # A newer saved-only document is deliberately ignored on entry.
+    logs['30000000-0000-0000-0000-000000000001']=dict(id='30000000-0000-0000-0000-000000000001',version=1,body='저장만 한 초안',state=first.evaluate('captureState()'),updated_at='2026-11-02T00:00:00Z',events=[])
+    second.goto(url);second.wait_for_function("!document.querySelector('#workspace').disabled")
+    assert second.locator('#output').input_value()==copied_body
+    assert second.locator('#last-copied').inner_text()==copied_date
+    assert second.locator('#items button[aria-pressed=true]').count()==1
+    assert second.locator('#inspection-items button[aria-pressed=true]').count()==1
+    assert second.locator('#misc-select-0').get_attribute('aria-pressed')=='true'
+    assert second.locator('#inspection-start').input_value()=='2026-03-25'
+    second.locator('#copy').click();second.wait_for_function("!document.querySelector('#copy').disabled")
+    assert counts['일상|1']==1
+    # An outdated browser cannot overwrite another visitor's new copy.
+    first.locator('#output').fill(copied_body+'\n충돌 수정')
+    first.locator('#copy').click();first.wait_for_function("!document.querySelector('#copy').disabled")
+    assert '다른 사람이 먼저' in first.locator('#cloud-status').inner_text()
+    assert first.locator('#last-copied').inner_text()==copied_date
+    first.on('dialog',lambda dialog:dialog.accept())
+    first.reload();first.wait_for_function("!document.querySelector('#workspace').disabled")
+    assert first.locator('#output').input_value()==copied_body
+    # Changes made directly in the database are reflected on the next visit.
+    catalog['training'][0][2]='DB에서 수정한 위험예지훈련'
     second.reload();second.wait_for_function("!document.querySelector('#workspace').disabled")
-    assert second.locator('#items button').first.inner_text() == '공유 수정된 위험예지훈련'
-    assert counts['일상|1'] == 1
+    assert second.locator('#items button').first.inner_text()=='DB에서 수정한 위험예지훈련'
     second.set_viewport_size({'width':390,'height':844})
     assert second.evaluate('document.documentElement.scrollWidth <= innerWidth')
-    # Saving edits to the same log cannot mutate its most recent copy snapshot.
-    copied_body=second.locator('#output').input_value()
-    second.locator('#output').fill(copied_body+'\n복사 후 수정한 초안')
-    second.locator('#save-log').click();second.wait_for_function("!document.querySelector('#workspace').disabled")
-    second.reload();second.wait_for_function("!document.querySelector('#workspace').disabled")
-    assert second.locator('#output').input_value()==copied_body
-    # Before SQL migration, the published client remains compatible with v1.
+    # Keep v1 database compatibility until the owner applies migration SQL.
     def legacy_api(route):
         path=route.request.url.split('.supabase.co',1)[1]
         if '/rpc/get_app_catalog' in path or '/work_log_copies?' in path:
             route.fulfill(status=404,content_type='application/json',body='{}')
         elif '/copy_events?' in path:
             route.fulfill(content_type='application/json',body=json.dumps([{'log_id':copy_snapshots[-1]['log_id'],'copied_at':'2026-11-01T04:00:00Z'}]))
-        else:
-            respond(route)
+        else:respond(route)
     legacy=browser.new_page();legacy.route('https://*.supabase.co/**',legacy_api)
     legacy.goto(url);legacy.wait_for_function("!document.querySelector('#workspace').disabled")
     assert legacy.locator('#items button[aria-pressed=true]').count()==1
     legacy.close()
-    # A setup/network failure must not silently fall back to private local counts.
-    failed = browser.new_page()
-    failed.route('**/supabase-config.js', lambda route: route.fulfill(content_type='application/javascript', body=(ROOT/'supabase-config.js').read_text().replace('enabled: false','enabled: true')))
-    failed.route('https://*.supabase.co/**', lambda route: route.fulfill(status=403, content_type='application/json', body='{}'))
-    failed.goto(url)
-    failed.wait_for_function("document.querySelector('#cloud-status').textContent.length > 0")
-    assert failed.locator('#workspace').evaluate('(el) => el.disabled')
+    failed=browser.new_page()
+    failed.route('https://*.supabase.co/**',lambda route:route.fulfill(status=403,content_type='application/json',body='{}'))
+    failed.goto(url);failed.wait_for_function("document.querySelector('#cloud-status').textContent.length > 0")
     assert failed.locator('#category').is_disabled()
-    assert not errors, errors
+    assert not errors,errors
     browser.close()
 server.shutdown()
-print('PASS: anonymous entry; two visitors; shared content/dates/counts; save/copy separation; duplicate prevention; version conflicts; catalog edits; mobile layout. (Simulated HTTP API)')
+print('PASS: removed unused controls; copy-only saving/counts; recent copy date; restored selections/dates/body; duplicate prevention; conflicts; DB content editing; legacy compatibility; mobile layout. (Simulated HTTP API)')
