@@ -422,7 +422,9 @@ async function connect(user) {
   currentUser=user;
   document.querySelector('#shared-tools').hidden=false;document.querySelector('#save-log').hidden=false;
   render();renderInspections();await refreshHistory(snapshot.logs);
-  if(snapshot.logs.length) restoreLog(await shared.load(snapshot.logs[0].id));
+  const copied = await shared.latestCopy();
+  if(copied) { restoreLog(copied); cloudMessage(`최근 복사 복원 · ${formatTime(copied.updated_at)}`); }
+  else if(snapshot.logs.length) restoreLog(await shared.load(snapshot.logs[0].id));
   else cloudMessage('공유 DB 연결됨');
 }
 document.querySelector('#new-log').addEventListener('click',()=>{

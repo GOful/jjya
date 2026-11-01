@@ -61,12 +61,34 @@
     },
     async snapshot() {
       const [catalog, counts, logs] = await Promise.all([
-        db('app_catalog?select=data,version&id=eq.true'),
+        this.readCatalog(),
         db('rpc/shared_usage_counts', {method:'POST',body:{}}),
-        db('work_logs?select=id,version,updated_at&order=updated_at.desc&limit=30')
+        this.logs()
       ]);
-      if (!catalog.length) throw new Error('점검 데이터 초기화를 확인하세요.');
-      return {catalog:catalog[0],counts,logs};
+      return {catalog,counts,logs};
+    },
+    async readCatalog() {
+      try { return await db('rpc/get_app_catalog',{method:'POST',body:{}}); }
+      catch(error) {
+        // Keep the existing site usable while the owner runs the migration SQL.
+        if(error.status !== 404) throw error;
+        const rows = await db('app_catalog?select=data,version&id=eq.true');
+        if(!rows.length) throw new Error('점검 데이터 초기화를 확인하세요.');
+        return rows[0];
+      }
+    },
+    async latestCopy() {
+      try {
+        const rows=await db('work_log_copies?select=log_id,log_version,body,state,copied_at&order=copied_at.desc,id.desc&limit=1');
+        if(!rows.length)return null;
+        const copy=rows[0];
+        return {id:copy.log_id,version:copy.log_version,body:copy.body,state:copy.state,updated_at:copy.copied_at};
+      } catch(error) {
+        if(error.status!==404)throw error;
+        // Older schemas record item usage, but cannot preserve historical body edits.
+        const events=await db('copy_events?select=log_id,copied_at&order=copied_at.desc,log_id.desc&limit=1');
+        return events.length ? this.load(events[0].log_id) : null;
+      }
     },
     async counts() { return db('rpc/shared_usage_counts',{method:'POST',body:{}}); },
     async logs() { return db('work_logs?select=id,version,updated_at&order=updated_at.desc&limit=30'); },
