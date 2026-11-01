@@ -38,7 +38,7 @@ input{font:inherit}input[type=date]{padding:8px;border:1px solid #bacbd7;border-
 </section>
 <section class="card" aria-labelledby="output-heading"><h2 id="output-heading">4. 업무일지</h2>
 <textarea id="output" aria-label="업무일지 본문"></textarea>
-<div class="actions"><button id="copy" disabled>복사 및 확정 (+1회)</button><span id="status" role="status" aria-live="polite"></span></div>
+<div class="actions"><button id="copy" disabled>복사</button><span id="status" role="status" aria-live="polite"></span></div>
 </section>
 </main>
 <script>
@@ -246,7 +246,7 @@ ${inspection}${insertedMisc}* 위험예지훈련 실시(${item[2]})
   - 작업 후 : 특이사항 없음
 * 사무실 정리정돈 및 업무 인수인계`;
   copyButton.disabled = busy;
-  copyButton.textContent = '복사 및 확정 (+1회)';
+  copyButton.textContent = '복사';
   status.textContent = `미확정 | ${pending.category} | 현재 사용 횟수: ${usage(pending.category, pending.id)}회`;
   render();
 }
@@ -254,7 +254,7 @@ function clearRiskSelection() {
   if (copyButton.dataset.copying) return;
   insertedMisc = ''; miscStatus.textContent = '';
   insertedInspection = ''; appliedInspections = {}; pending = null; output.value = ''; copyButton.disabled = true;
-  copyButton.textContent = '복사 및 확정 (+1회)';
+  copyButton.textContent = '복사';
   status.textContent = ''; inspectionStatus.textContent = '';
   render();
 }
@@ -287,7 +287,7 @@ copyButton.addEventListener('click', async () => {
       counts = next; selected.confirmed = true;
       newKeys.forEach(key => selected.countedInspections.add(key));
     }
-    render(); renderInspections(); copyButton.textContent = '다시 복사';
+    render(); renderInspections(); copyButton.textContent = '복사';
     status.textContent = `복사 및 확정 완료 | ${selected.category} | 사용 횟수: ${usage(selected.category, selected.id)}회`;
   } catch (_) {
     status.textContent = '자동 복사에 실패했습니다. 본문을 직접 복사하거나 브라우저의 클립보드 권한을 확인하고 다시 시도하세요. 사용 횟수는 증가하지 않았습니다.';
