@@ -17,11 +17,20 @@ textarea{display:block;width:100%;min-height:310px;padding:18px;border:1px solid
 @media(max-width:820px){.inspection-columns{grid-template-columns:1fr;gap:16px}.inspection-toolbar{grid-template-columns:minmax(0,1.4fr) repeat(2,minmax(0,1fr))}main{padding:0 16px 20px;margin-top:24px}.card{padding:18px;margin-top:16px}.table-wrap{height:310px}#misc-items{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){h1{font-size:23px}h2{font-size:16px;margin-bottom:16px}main{padding:0 12px 16px}.card{padding:16px}.inspection-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.inspection-toolbar .field:first-child{grid-column:1/-1}.training-toolbar{grid-template-columns:1fr}#misc-items button{padding:10px;font-size:12px;gap:7px}td,th{padding:10px 8px}th:first-child,td:first-child{width:66px}textarea{padding:12px;font-size:13px;min-height:340px}}
 .work-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:18px;align-items:start}.work-columns>.card{margin-top:0}.work-columns textarea{min-height:360px}@media(max-width:820px){.work-columns{grid-template-columns:1fr;gap:16px;margin-top:16px}}
+[hidden]{display:none!important}.workspace{border:0;padding:0;margin:0;min-width:0}.cloud-bar{margin-bottom:20px;padding:14px 16px;background:white;border:1px solid #e0e6eb;border-radius:10px;font-size:13px}.cloud-line,#shared-tools,.cloud-bar form{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.cloud-bar form,#shared-tools{margin-top:10px}.cloud-bar button,#save-log,dialog button{padding:9px 12px;border:1px solid #d5dfe6;background:#fff;border-radius:7px;color:#24634f}.cloud-bar label{display:flex;align-items:center;gap:8px}.cloud-bar input{width:210px;max-width:100%;padding:8px;border:1px solid #d5dfe6;border-radius:6px}.cloud-bar select{width:auto;max-width:100%}#cloud-status:empty{display:none}#cloud-status{margin:10px 0 0;line-height:1.6;color:#526779}dialog{width:min(600px,calc(100% - 24px));border:1px solid #d5dfe6;border-radius:12px;padding:22px;color:#213649}dialog::backdrop{background:#172c4066}dialog .field{margin:12px 0}dialog textarea{min-height:110px}#catalog-status{font-size:13px;line-height:1.6}
 </style>
+<script src="supabase-config.js"></script>
+<script src="cloud.js"></script>
 </head>
 <body>
 <main>
 <header><h1>일일업무일지 생성기</h1></header>
+<section class="cloud-bar" aria-label="공유 저장">
+<div class="cloud-line"><span id="cloud-mode">개인 저장 모드</span></div>
+<div id="shared-tools" hidden><button id="new-log" type="button">새 일지</button><select id="saved-logs" aria-label="저장한 일지"></select><button id="load-log" type="button">불러오기</button><button id="refresh-shared" type="button">공유 횟수 새로고침</button><button id="edit-catalog" type="button">점검 내용 편집</button></div>
+<p id="cloud-status" role="status" aria-live="polite"></p>
+</section>
+<fieldset id="workspace" class="workspace">
 <div class="inspection-columns">
 <section class="card" aria-labelledby="list-heading">
 <h2 id="list-heading"><span class="step">1</span>위험예지훈련</h2>
@@ -48,9 +57,15 @@ textarea{display:block;width:100%;min-height:310px;padding:18px;border:1px solid
 </section>
 <section class="card" aria-labelledby="output-heading"><h2 id="output-heading"><span class="step">4</span>업무일지</h2>
 <textarea id="output" aria-label="업무일지 본문"></textarea>
-<div class="actions"><button id="copy" disabled>복사</button><span id="status" role="status" aria-live="polite"></span></div>
+<div class="actions"><button id="copy" disabled>복사</button><button id="save-log" type="button" hidden>저장</button><span id="status" role="status" aria-live="polite"></span></div>
 </section>
 </div>
+</fieldset>
+<dialog id="catalog-dialog" aria-labelledby="catalog-heading"><h2 id="catalog-heading">점검 내용 편집</h2>
+<label class="field">항목<select id="catalog-item"></select></label>
+<label class="field">내용<textarea id="catalog-content"></textarea></label>
+<label class="field" id="catalog-detail-field">작업 전 안전수칙 / 업무일지 내용<textarea id="catalog-detail"></textarea></label>
+<p id="catalog-status" role="status"></p><div class="actions"><button id="save-catalog" type="button">저장</button><button id="close-catalog" type="button">닫기</button></div></dialog>
 </main>
 <script>
 'use strict';
@@ -63,9 +78,11 @@ const copyButton = document.querySelector('#copy');
 const status = document.querySelector('#status');
 const notice = document.querySelector('#notice');
 let counts = {}, pending = null, busy = false;
+const shared = window.SharedStore;
+let activeLogId = crypto.randomUUID(), activeLogVersion = 0, catalogVersion = 0, dirty = false, cloudWorking = false;
 function warn(message) { notice.hidden = false; notice.textContent = message; }
 try {
-  const saved = localStorage.getItem(STORAGE_KEY);
+  const saved = window.SharedStore?.enabled ? null : localStorage.getItem(STORAGE_KEY);
   if (saved !== null) {
     const parsed = JSON.parse(saved);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || Object.values(parsed).some(v => !Number.isSafeInteger(v) || v < 0)) throw new Error('invalid data');
@@ -232,19 +249,24 @@ function renderMisc() {
     chip.append(text,remove); selected.append(chip);
   });
 }
-MISC_TASKS.forEach(([title],i) => {
+function buildMisc() {
+ document.querySelector('#misc-items').replaceChildren();
+ MISC_TASKS.forEach(([title],i) => {
   const button = document.createElement('button'); button.type = 'button'; button.id = `misc-select-${i}`;
   const number = document.createElement('span'); number.className = 'number'; number.textContent = i+1;
   const name = document.createElement('span'); name.textContent = title;
   button.append(number,name);
   button.addEventListener('click', () => { const next = new Set(miscSelections); next.has(i) ? next.delete(i) : next.add(i); updateMisc(next); });
   document.querySelector('#misc-items').append(button);
-});
-renderMisc();
+ });
+ renderMisc();
+}
+buildMisc();
 function generate(item) {
   if (copyButton.dataset.copying) return;
   let inspection;
   try { inspection = inspectionText(); } catch(error) { inspectionStatus.textContent = error.message; return; }
+  activeLogId = crypto.randomUUID(); activeLogVersion = 0;
   insertedMisc = miscText();
   miscStatus.textContent = '';
   insertedInspection = inspection;
@@ -260,6 +282,7 @@ ${inspection}${insertedMisc}* 위험예지훈련 실시(${item[2]})
   copyButton.disabled = busy;
   copyButton.textContent = '복사';
   status.textContent = `미확정 | ${pending.category} | 현재 사용 횟수: ${usage(pending.category, pending.id)}회`;
+  dirty = true;
   render();
 }
 function clearRiskSelection() {
@@ -279,14 +302,25 @@ async function copyText(text) {
   if (!document.execCommand('copy')) throw new Error('clipboard unavailable');
 }
 copyButton.addEventListener('click', async () => {
-  if (busy || !pending || !output.value.trim()) return;
+  if (busy || cloudWorking || !pending || !output.value.trim() || (shared?.enabled && !currentUser)) return;
   const selected = pending;
-  const inspectionControls = [...document.querySelectorAll('#inspections button, #inspections input, #inspections select, #misc-items button, #misc-selected button')];
+  const inspectionControls = [...document.querySelectorAll('#inspections button, #inspections input, #inspections select, #misc-items button, #misc-selected button, .cloud-bar button, .cloud-bar select, #save-log')];
   inspectionControls.forEach(control => control.disabled = true);
   busy = true; copyButton.disabled = true; copyButton.dataset.copying = 'true'; category.disabled = true; output.readOnly = true;
+  let clipboardDone = false;
   try {
-    await copyText(output.value);
+    await copyText(output.value); clipboardDone = true;
     const keys = Object.entries(appliedInspections).map(([i,j]) => inspectionKey(i,j));
+    if (shared?.enabled) {
+      const result = await shared.save({id:activeLogId,version:activeLogVersion,body:output.value,state:captureState(),keys:[keyFor(selected.category,selected.id),...keys]});
+      activeLogVersion = result.version; counts = result.counts; dirty = false;
+      selected.confirmed = true;
+      render(); renderInspections();
+      status.textContent = '복사 완료';
+      cloudMessage(`공유 저장 · ${formatTime(result.updated_at)}`);
+      try { await refreshHistory(); } catch (_) { cloudMessage('공유 저장 완료 · 최근 목록을 갱신하지 못했습니다.'); }
+      return;
+    }
     const newKeys = keys.filter(key => !selected.countedInspections.has(key));
     if (!selected.confirmed || newKeys.length) {
       const next = {...counts};
@@ -301,13 +335,158 @@ copyButton.addEventListener('click', async () => {
     }
     render(); renderInspections(); copyButton.textContent = '복사';
     status.textContent = `복사 및 확정 완료 | ${selected.category} | 사용 횟수: ${usage(selected.category, selected.id)}회`;
-  } catch (_) {
+  } catch (error) {
+    if (shared?.enabled && clipboardDone) { cloudMessage(friendlyError(error, '복사는 완료했지만 공유 저장에 실패했습니다.')); return; }
     status.textContent = '자동 복사에 실패했습니다. 본문을 직접 복사하거나 브라우저의 클립보드 권한을 확인하고 다시 시도하세요. 사용 횟수는 증가하지 않았습니다.';
   } finally {
     inspectionControls.forEach(control => control.disabled = false);
-    busy = false; copyButton.disabled = false; delete copyButton.dataset.copying; category.disabled = false; output.readOnly = false;
+    busy = false; copyButton.disabled = !pending || Boolean(shared?.enabled && !currentUser); delete copyButton.dataset.copying; category.disabled = false; output.readOnly = false;
   }
 });
+let currentUser = null;
+const cloudStatus = document.querySelector('#cloud-status');
+const workspace = document.querySelector('#workspace');
+function cloudMessage(message) { cloudStatus.textContent = message; }
+function formatTime(value) { return new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}); }
+function friendlyError(error, fallback = '요청을 완료하지 못했습니다.') {
+  if (error.message?.includes('VERSION_CONFLICT')) return '다른 사람이 먼저 저장했습니다. 현재 내용을 따로 복사한 후 저장한 일지를 다시 불러오세요.';
+  if (error.message?.includes('ANONYMOUS_AUTH_REQUIRED')) return '공유 연결을 다시 시도하세요.';
+  if ([401,403].includes(error.status)) return '익명 접속 설정을 확인하고 새로고침하세요.';
+  return fallback + ' 연결 설정를 확인하고 다시 시도하세요.';
+}
+function captureState() {
+  return {schemaVersion:1,category:category.value,inspectionCategory:inspectionCategory.value,
+    pending:pending ? {id:pending.id,category:pending.category,confirmed:pending.confirmed} : null,
+    inspectionSelections:{...inspectionSelections},appliedInspections:{...appliedInspections},
+    inspectionPeriods:inspectionPeriods.map(value=>({...value})),miscSelections:[...miscSelections],
+    insertedInspection,insertedMisc};
+}
+function validState(state) {
+  const groups = [...category.options].map(option=>option.value);
+  const validSelections = selection => selection && typeof selection==='object' && !Array.isArray(selection) &&
+    Object.entries(selection).every(([i,j])=>INSPECTIONS[i] && Number.isInteger(j) && j>=0 && j<INSPECTIONS[i][2].length);
+  return state?.schemaVersion===1 && groups.includes(state.category) && state.pending &&
+    DATA.some(item=>item[0]===state.pending.id) && groups.includes(state.pending.category) &&
+    Number.isInteger(Number(state.inspectionCategory)) && INSPECTIONS[Number(state.inspectionCategory)] &&
+    validSelections(state.inspectionSelections) && validSelections(state.appliedInspections) &&
+    Array.isArray(state.inspectionPeriods) && state.inspectionPeriods.length===INSPECTIONS.length &&
+    state.inspectionPeriods.every(period=>period && ['start','end'].every(key=>typeof period[key]==='string' && (!period[key] || /^\d{4}-\d{2}-\d{2}$/.test(period[key])))) &&
+    Array.isArray(state.miscSelections) && state.miscSelections.every(i=>Number.isInteger(i) && MISC_TASKS[i]) &&
+    typeof state.insertedInspection==='string' && typeof state.insertedMisc==='string';
+}
+function validateCatalog(data) {
+  if (!data || !Array.isArray(data.training) || !Array.isArray(data.inspections) || !Array.isArray(data.misc)) throw new Error('INVALID_CATALOG');
+  if (data.training.length!==DATA.length || data.inspections.length!==INSPECTIONS.length || data.misc.length!==MISC_TASKS.length) throw new Error('INVALID_CATALOG');
+  if (!data.training.every((item,i)=>Array.isArray(item)&&item.length===4&&item[0]===DATA[i][0]&&item.slice(1).every(v=>typeof v==='string'&&v.trim()))) throw new Error('INVALID_CATALOG');
+  if (!data.inspections.every((group,i)=>Array.isArray(group)&&group.length===3&&typeof group[0]==='string'&&typeof group[1]==='string'&&Array.isArray(group[2])&&group[2].length===INSPECTIONS[i][2].length&&group[2].every(v=>typeof v==='string'&&v.trim()))) throw new Error('INVALID_CATALOG');
+  if (!data.misc.every(item=>Array.isArray(item)&&item.length===2&&item.every(v=>typeof v==='string'&&v.trim()))) throw new Error('INVALID_CATALOG');
+}
+function applyCatalog(data) {
+  validateCatalog(data);
+  DATA.splice(0,DATA.length,...data.training);
+  INSPECTIONS.splice(0,INSPECTIONS.length,...data.inspections);
+  MISC_TASKS.splice(0,MISC_TASKS.length,...data.misc);
+  [...inspectionCategory.options].forEach((option,i)=>option.textContent=INSPECTIONS[i][0]);
+  buildMisc(); render(); renderInspections();
+}
+function restoreLog(log) {
+  const state=log.state;
+  if (!validState(state)) throw new Error('INVALID_STATE');
+  category.value=state.category; inspectionCategory.value=state.inspectionCategory;
+  pending={...state.pending,countedInspections:new Set()};
+  inspectionSelections={...state.inspectionSelections};appliedInspections={...state.appliedInspections};
+  state.inspectionPeriods.forEach((period,i)=>inspectionPeriods[i]={...period});
+  miscSelections=new Set(state.miscSelections);insertedInspection=state.insertedInspection;insertedMisc=state.insertedMisc;
+  activeLogId=log.id;activeLogVersion=log.version;output.value=log.body;dirty=false;
+  render();renderInspections();renderMisc();copyButton.disabled=false;status.textContent='';
+  cloudMessage(`공유 저장 · ${formatTime(log.updated_at)}`);
+}
+async function refreshHistory(logs) {
+  const rows=logs || await shared.logs();
+  const select=document.querySelector('#saved-logs');select.replaceChildren();
+  const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='저장한 일지 선택';select.append(placeholder);
+  rows.forEach(row=>{const option=document.createElement('option');option.value=row.id;option.textContent=formatTime(row.updated_at);select.append(option);});
+  if (rows.some(row=>row.id===activeLogId)) select.value=activeLogId;
+}
+async function cloudAction(action) {
+  if(cloudWorking || busy) return;
+  cloudWorking=true;workspace.disabled=true;
+  const controls=[...document.querySelectorAll('.cloud-bar button, .cloud-bar input, .cloud-bar select')];
+  controls.forEach(control=>control.disabled=true);
+  try {await action();} catch(error) {cloudMessage(friendlyError(error));}
+  finally {cloudWorking=false;workspace.disabled=Boolean(shared?.enabled&&!currentUser);controls.forEach(control=>control.disabled=false);}
+}
+async function connect(user) {
+  const snapshot=await shared.snapshot();
+  applyCatalog(snapshot.catalog.data);catalogVersion=snapshot.catalog.version;counts=snapshot.counts;
+  currentUser=user;
+  document.querySelector('#shared-tools').hidden=false;document.querySelector('#save-log').hidden=false;
+  render();renderInspections();await refreshHistory(snapshot.logs);
+  if(snapshot.logs.length) restoreLog(await shared.load(snapshot.logs[0].id));
+  else cloudMessage('공유 DB 연결됨');
+}
+document.querySelector('#new-log').addEventListener('click',()=>{
+  if(dirty&&!confirm('저장하지 않은 내용을 지우고 새 일지를 만들까요?'))return;
+  clearRiskSelection();inspectionSelections={};appliedInspections={};miscSelections=new Set();insertedMisc='';insertedInspection='';
+  activeLogId=crypto.randomUUID();activeLogVersion=0;inspectionPeriods.forEach((_,i)=>inspectionPeriods[i]={start:'',end:''});
+  renderInspections();renderMisc();document.querySelector('#saved-logs').value='';dirty=false;cloudMessage('새 일지');
+});
+document.querySelector('#load-log').addEventListener('click',()=>{
+  const id=document.querySelector('#saved-logs').value;if(!id)return;
+  if(dirty&&!confirm('저장하지 않은 내용을 지우고 선택한 일지를 불러올까요?'))return;
+  cloudAction(async()=>{restoreLog(await shared.load(id));counts=await shared.counts();render();renderInspections();});
+});
+document.querySelector('#refresh-shared').addEventListener('click',()=>cloudAction(async()=>{
+  counts=await shared.counts();render();renderInspections();await refreshHistory();cloudMessage('공유 횟수 최신화됨');
+}));
+document.querySelector('#save-log').addEventListener('click',()=>cloudAction(async()=>{
+  if(!pending||!output.value.trim()){cloudMessage('먼저 업무일지를 작성하세요.');return;}
+  const result=await shared.save({id:activeLogId,version:activeLogVersion,body:output.value,state:captureState()});
+  activeLogVersion=result.version;counts=result.counts;dirty=false;render();renderInspections();
+  cloudMessage(`공유 저장 · ${formatTime(result.updated_at)}`);try { await refreshHistory(); } catch (_) { cloudMessage('공유 저장 완료 · 최근 목록을 갱신하지 못했습니다.'); }
+}));
+workspace.addEventListener('input',()=>{if(shared?.enabled)dirty=true;});
+workspace.addEventListener('click',event=>{if(shared?.enabled&&event.target.closest('.item,.remove-selection,#misc-items button'))dirty=true;});
+window.addEventListener('beforeunload',event=>{if(shared?.enabled&&dirty){event.preventDefault();event.returnValue='';}});
+// Edit existing content without changing identifiers, so past counts keep their meaning.
+let catalogDraft=null;
+const catalogDialog=document.querySelector('#catalog-dialog'),catalogItem=document.querySelector('#catalog-item');
+function catalogEntry() {const [kind,i,j]=catalogItem.value.split(':');return {kind,i:Number(i),j:Number(j)};}
+function showCatalogEntry(){
+  const {kind,i,j}=catalogEntry();
+  document.querySelector('#catalog-content').value=kind==='training'?catalogDraft.training[i][2]:kind==='inspection'?catalogDraft.inspections[i][2][j]:catalogDraft.misc[i][0];
+  document.querySelector('#catalog-detail-field').hidden=kind==='inspection';
+  document.querySelector('#catalog-detail').value=kind==='training'?catalogDraft.training[i][3]:kind==='misc'?catalogDraft.misc[i][1]:'';
+}
+document.querySelector('#edit-catalog').addEventListener('click',()=>cloudAction(async()=>{
+  const snapshot=await shared.snapshot();catalogVersion=snapshot.catalog.version;
+  catalogDraft=structuredClone(snapshot.catalog.data);validateCatalog(catalogDraft);catalogItem.replaceChildren();
+  const add=(value,text)=>{const option=document.createElement('option');option.value=value;option.textContent=text;catalogItem.append(option);};
+  catalogDraft.training.forEach((item,i)=>add(`training:${i}`,`위험예지훈련 · ${item[2]}`));
+  catalogDraft.inspections.forEach(([title,,entries],i)=>entries.forEach((text,j)=>add(`inspection:${i}:${j}`,`${title} · ${text}`)));
+  catalogDraft.misc.forEach(([title],i)=>add(`misc:${i}`,`기타업무 · ${title}`));
+  showCatalogEntry();document.querySelector('#catalog-status').textContent='';catalogDialog.showModal();
+}));
+catalogItem.addEventListener('change',showCatalogEntry);
+document.querySelector('#close-catalog').addEventListener('click',()=>catalogDialog.close());
+document.querySelector('#save-catalog').addEventListener('click',async()=>{
+  const content=document.querySelector('#catalog-content').value.trim(),detail=document.querySelector('#catalog-detail').value.trim();
+  const {kind,i,j}=catalogEntry();if(!content||(kind!=='inspection'&&!detail)){document.querySelector('#catalog-status').textContent='내용을 입력하세요.';return;}
+  const next=structuredClone(catalogDraft);
+  if(kind==='training'){next.training[i][2]=content;next.training[i][3]=detail;}
+  else if(kind==='inspection')next.inspections[i][2][j]=content;
+  else next.misc[i]=[content,detail];
+  const button=document.querySelector('#save-catalog');button.disabled=true;
+  try{catalogVersion=await shared.catalog(catalogVersion,next);catalogDraft=next;
+    document.querySelector('#catalog-status').textContent='공유 항목 저장됨. 변경 내용은 새로고침 시 적용됩니다.';
+  }catch(error){document.querySelector('#catalog-status').textContent=friendlyError(error);}
+  finally{button.disabled=false;}
+});
+if(shared?.enabled){
+  workspace.disabled=true;document.querySelector('#cloud-mode').textContent='공유 저장 모드';
+  cloudAction(async()=>{await connect(await shared.start());});
+}
+
 render();
 </script>
 </body>

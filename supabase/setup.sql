@@ -1,0 +1,108 @@
+-- Copy this entire file into Supabase SQL Editor and Run.
+-- Run once in Supabase SQL Editor. Enable Anonymous Sign-Ins in Auth settings.
+-- Public shared app: every signed-in anonymous visitor can read and edit shared data.
+begin;
+create or replace function public.can_use_shared_app() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select auth.uid() is not null;
+$$;
+revoke all on function public.can_use_shared_app() from public, anon;
+grant execute on function public.can_use_shared_app() to authenticated;
+
+create table if not exists public.app_catalog (
+  id boolean primary key default true check (id),
+  data jsonb not null check (jsonb_typeof(data) = 'object'),
+  version integer not null default 1,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id) on delete set null
+);
+create table if not exists public.work_logs (
+  id uuid primary key,
+  body text not null check (length(body) <= 100000),
+  state jsonb not null check (jsonb_typeof(state) = 'object'),
+  version integer not null default 1,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id) on delete set null
+);
+create table if not exists public.copy_events (
+  log_id uuid not null references public.work_logs(id) on delete cascade,
+  item_key text not null check (length(item_key) between 1 and 100),
+  copied_at timestamptz not null default now(),
+  copied_by uuid references auth.users(id) on delete set null,
+  primary key (log_id, item_key)
+);
+alter table public.app_catalog enable row level security;
+alter table public.work_logs enable row level security;
+alter table public.copy_events enable row level security;
+drop policy if exists member_catalog_read on public.app_catalog;
+create policy member_catalog_read on public.app_catalog for select to authenticated using (public.can_use_shared_app());
+drop policy if exists member_logs_read on public.work_logs;
+create policy member_logs_read on public.work_logs for select to authenticated using (public.can_use_shared_app());
+drop policy if exists member_events_read on public.copy_events;
+create policy member_events_read on public.copy_events for select to authenticated using (public.can_use_shared_app());
+revoke all on public.app_catalog, public.work_logs, public.copy_events from anon, authenticated;
+grant select on public.app_catalog, public.work_logs, public.copy_events to authenticated;
+
+create or replace function public.shared_usage_counts() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not public.can_use_shared_app() then raise exception 'ANONYMOUS_AUTH_REQUIRED' using errcode = '42501'; end if;
+  return coalesce((select jsonb_object_agg(item_key, n) from
+    (select item_key, count(*) as n from public.copy_events group by item_key) counts), '{}'::jsonb);
+end;
+$$;
+
+-- Save and copy are atomic. Repeated copying of the same log/item is counted once.
+-- expected_version prevents one user from silently overwriting another user's work.
+create or replace function public.save_work_log(
+  p_id uuid, p_expected_version integer, p_body text, p_state jsonb,
+  p_keys text[] default null
+) returns jsonb language plpgsql security definer set search_path = '' as $$
+declare saved public.work_logs; current_version integer;
+begin
+  if not public.can_use_shared_app() then raise exception 'ANONYMOUS_AUTH_REQUIRED' using errcode = '42501'; end if;
+  if length(trim(p_body)) = 0 then raise exception 'EMPTY_LOG'; end if;
+  if p_expected_version = 0 then
+    insert into public.work_logs(id, body, state, updated_by)
+      values (p_id, p_body, p_state, auth.uid()) on conflict do nothing returning * into saved;
+    if saved.id is null then raise exception 'VERSION_CONFLICT'; end if;
+  else
+    select version into current_version from public.work_logs where id = p_id for update;
+    if current_version is null or current_version <> p_expected_version then raise exception 'VERSION_CONFLICT'; end if;
+    update public.work_logs set body = p_body, state = p_state, version = version + 1,
+      updated_at = now(), updated_by = auth.uid() where id = p_id returning * into saved;
+  end if;
+  if p_keys is not null then
+    if cardinality(p_keys) > 20 then raise exception 'TOO_MANY_KEYS'; end if;
+    insert into public.copy_events(log_id,item_key,copied_by)
+      select p_id, k, auth.uid() from (select distinct unnest(p_keys) as k) keys
+      on conflict do nothing;
+  end if;
+  return jsonb_build_object('version',saved.version,'updated_at',saved.updated_at,
+    'counts',public.shared_usage_counts());
+end;
+$$;
+create or replace function public.save_app_catalog(p_expected_version integer, p_data jsonb)
+returns integer language plpgsql security definer set search_path = '' as $$
+declare next_version integer;
+begin
+  if not public.can_use_shared_app() then raise exception 'ANONYMOUS_AUTH_REQUIRED' using errcode = '42501'; end if;
+  if jsonb_typeof(p_data->'training') is distinct from 'array'
+    or jsonb_typeof(p_data->'inspections') is distinct from 'array'
+    or jsonb_typeof(p_data->'misc') is distinct from 'array' then raise exception 'INVALID_CATALOG'; end if;
+  update public.app_catalog set data = p_data, version = version + 1, updated_at = now(), updated_by = auth.uid()
+    where id = true and version = p_expected_version returning version into next_version;
+  if next_version is null then raise exception 'VERSION_CONFLICT'; end if;
+  return next_version;
+end;
+$$;
+revoke all on function public.shared_usage_counts() from public, anon;
+revoke all on function public.save_work_log(uuid,integer,text,jsonb,text[]) from public, anon;
+revoke all on function public.save_app_catalog(integer,jsonb) from public, anon;
+grant execute on function public.shared_usage_counts() to authenticated;
+grant execute on function public.save_work_log(uuid,integer,text,jsonb,text[]) to authenticated;
+grant execute on function public.save_app_catalog(integer,jsonb) to authenticated;
+commit;
+
+-- Run after schema.sql. Re-running preserves edited catalog data.
+insert into public.app_catalog(id,data) values (true, $catalog${"training": [[1, "일상", "단자대 볼트 조임시 돌출부에 의한 긁힘", "적절한 공구 사용, 작업전 안전교육, 안전모, 절연장갑 착용"], [2, "일상", "분전반 쇄정", "모든 작업후 및 일상점검 시 분전반 쇄정확인 철저"], [3, "일상", "전기,기계기구를 이용한 작업시 각종 안전사고", "안전화, 안전모 착용, 작업전 안전교육, 보안경 착용, 그라인더·고속절단기 작업안전수칙 준수"], [4, "일상", "조작반 오조작에 의한 전원 투입", "작업 전 안전교육, 작업 전 계통 숙지, 작업중 표지판 부착, 작업안전수칙 준수"], [5, "일상", "모선,케이블헤드, 볼트 등 돌출부 충돌", "작업전 안전교육, 안전모, 절연장갑 착용, 전방주시 철저"], [6, "일상", "진공 인터럽터 절연불량으로 인한 가압", "작업전 안전교육, 절연장갑 및 절연화 착용, 작업개소 전원차단 및 검전 실시, 절연상태 확인, 작업안전수칙 준수"], [7, "일상", "교육훈련 및 절차 미준수", "직무교육 실시, 비상대응훈련 실시 사고사례 교육 실시"], [8, "일상", "배전반내 공간 협소 및 돌출부로 인한 외상", "작업전 안전교육, 안전모, 절연장갑 착용, 전방주시 철저"], [9, "일상", "점검중 활선 충전부 접근 및 접촉", "작업전 안전교육, 작업개소 전원차단 및 작업중 표지설치, 절연장갑착용"], [10, "일상,3개월,6개월,1년", "분전반 내부작업시 날카로운 부위에 긁힘", "작업전 안전교육, 안전모, 절연화, 절연장갑 착용, 내부 돌출부 및 날카로운 부위 확인, 무리한 작업자세 금지"], [11, "일상,3개월,6개월,1년", "수동 및 자동 오취급에 의한 감전사고", "작업 전 안전교육, 안전작업을 위한 접지 설치, 작업안전수칙 준수"], [12, "일상,3개월,6개월,1년", "작업구간이 협소하여 구조물과 충돌 발생", "작업전 안전교육, 안전모 착용, 작업공간 및 주변 돌출부 확인, 이동 동선 확보, 전방주시 철저"], [13, "3개월", "평활용 콘덴서 잔류전하에 의한 전류접촉", "작업전 안전교육, 계통숙지, 절연장갑착용,접촉전방전실시"], [14, "3개월", "축전지 단자전압 측정시 단락으로 인한 화상", "작업전 안전교육, 절연보호덮개취부, 절연장갑착용, 전기안전수칙준수"], [15, "3개월,6개월,1년", "정류부, 축전지 등 충전부 활선 접촉", "작업전 안전교육, 절연보호덮개취부, 절연장갑착용,전기안전수칙준수"], [16, "6개월,1년", "인출작업중 차단기 중량으로 인한 손, 발 끼임", "작업전 안전교육, 안전모, 절연장갑, 절연화 착용, 중량물 취급 매뉴얼 숙지"], [17, "수전선로", "맨홀, 트라프 등 중량물에 의한 손, 발 끼임", "작업전 안전교육, 안전모, 안전화, 보호장갑 착용, 중량물 취급 안전수칙 준수, 2인 1조 작업 및 협착 주의"], [18, "MCC", "MCC반 주변설비에 부딪힘", "작업전안전교육 및 사전위험 요소 파악, 안전모착용"], [19, "MCC", "MCC반 미 쇄정", "MCC반 쇄정상태 확인, 잠금장치 파손여부 확인"], [20, "MCC", "MCC반 내부 점검시 날카로운 부위에 긁힘", "안전모, 절연장갑 착용, 내부 돌출부 및 날카로운 부위 확인, 작업안전수칙 준수"], [21, "MCC", "MCC 오동작으로 인한 전원 투입", "작업전 안전교육, 작업개소 전원차단 및 작업중 표지설치, 절연장갑 착용, 전기안전수칙준수"], [22, "MCC", "콘덴서 폭발", "안전모, 보안경, 절연장갑 착용, 콘덴서 외관 및 이상징후 확인, 잔류전하 방전 및 무전압 확인"], [23, "MCC", "콘덴서 잔류전하에 의한 전류 접촉", "작업전 안전교육, 작업개소 전원차단 및 작업중 표지설치, 절연장갑착용, 접촉전방전실시"]], "inspections": [["여름철 대비 안전점검", "제공 기간: '25.03.25. ~ 10.15.", ["비상 복구자재ㆍ장비ㆍ비상연락망 정비상태", "각종 교육(안전ㆍ직무ㆍ소방 등) 실시상태", "각 기능실 소화기 등 소방시설물 관리상태", "취약(주의)개소 점검 및 관리상태", "낙뢰 보호장비 및 예방시설물 점검(서지보호기 등)", "현장조치매뉴얼 현행화 및 숙지상태", "전기설비 구조물(변전소,전기실) 균열 및 누수점검", "수․송배전선로 맨홀, 관로 침수 여부 점검", "취약개소(변압기,이행구간,MCC 등) 점검", "보호계전기(GIPAM, 변전설비 등) 설정치 점검"]], ["겨울철 대비 안전점검", "제공 기간: '22.11.15. ~ '23.03.15.", ["비상 복구자재‧장비‧비상연락망 및 개인대응수칙 정비", "각종 교육(안전‧직무‧소방 등) 실시상태", "각 기능실 소화기 등 소방시설물 관리상태", "취약개소 점검 및 관리상태", "비상전원설비(UPS, 축전지 등) 동작상태", "전기설비 구조물(변전소, 전기실) 침하, 균열, 누수점검"]], ["해빙기 대비 안전점검", "제공 기간: '25.01.15. ~ '23.03.31. (연도 확인 필요)", ["비상 복구자재ㆍ수방용장비ㆍ비상연락망 정비", "개인대응수칙 및 현장조치매뉴얼 정비 및 숙지상태", "각종 교육(안전ㆍ직무ㆍ소방 등) 실시상태", "각 기능실 소화기 등 소방시설물 관리상태", "취약(주의)개소 점검 및 관리상태", "전기설비 구조물(변전소) 균열, 누수점검", "수전선로 맨홀 침하 여부 점검", "기타"]], ["풍수해 대비 안전점검", "제공 기간: '25.05.20. ~ 10.15.", ["비상 복구장비‧자재 관리 및 동작상태 점검", "취약(주의)개소점검 및 관리상태 점검", "기능실 구조물 균열․누수 및 배수로 상태 점검", "낙뢰 보호 장비 및 예방시설물 점검(피뢰기, 서지보호기 등)", "수․송배전선로 관로 및 맨홀침수 여부 점검", "비상연락망 및 현장조치 매뉴얼 현행화 상태점검", "우수기 취약 MCC반 점검"]], ["시설물 일제 안전점검", "매월 1~10일 / 공문 확인: N월 전기통신분야 시설물 일제 안전점검 시행", ["배전반 각종 절연애자 균열 및 파손 여부", "변성기 외관 상태 및 온도라벨 상태", "변압기 소음 및 온도 이상유무", "정류기 각종 제어기능 이상유무", "서지보호장치 전원램프 및 배선 취부상태", "충전장치 부동 및 균등전압 설정값 상태", "소공간 자동소화장치 약제 실린더 압력상태", "원격소장치 표시등 점등상태 및 통신상태", "변전소 환기설비 정상가동 여부", "변전소 콘센트, 조명등기구 등 취부상태 등", "변전소 구축물 균열 및 누수 여부", "접지선 배열 및 단자 조임 상태", "변전소(제한구역) 출입문 잠금장치 상태"]], ["설 연휴 대비 자체 안전점검", "제공 기간: '25.01.07. ~ 01.17.", ["역사 MCC설비 및 분전반 관리상태", "이례사태 대비 비상연락망 구축 및 정비 상태"]]], "misc": [["전력량 검침", "* 변전소 전력량 검침(대구은행)"], ["안전점검의 날", "* 안전점검의 날 행사 실시\n  - 소화기, 양수기 및 비상복구용 자재 점검"], ["소화기 점검", "* 변전소 소화기점검(대실, 대구은행, 대공원, 영남대)"], ["음주측정기 점검", "* 음주측정기 작동상태 점검: 이상없음"], ["소방점검 입회", "* 변전소 소방점검 입회(영남대)"], ["바닥왁스 작업 입회", "* 변전소 바닥왁스 작업 입회(대구은행)"]]}$catalog$::jsonb) on conflict (id) do nothing;
