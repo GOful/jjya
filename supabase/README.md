@@ -1,7 +1,7 @@
 # Supabase 공유 DB 설정
 
-현재 연결 주소와 Publishable key는 설정되어 있습니다. DB 준비가 끝나기 전에는
-`supabase-config.js`의 `enabled: false`로 기존 개인 저장 방식을 유지합니다.
+현재 연결 주소와 Publishable key가 설정되어 있으며 공유 DB 모드가 활성화되어 있습니다.
+새 프로젝트를 준비할 때는 `supabase-config.js`의 `enabled: false`로 기존 개인 저장 방식을 유지할 수 있습니다.
 공개 키는 브라우저에 노출되는 용도이며 비밀번호나 secret/service_role 키를 넣으면 안 됩니다.
 
 ## 프로젝트에서 한 번 실행
