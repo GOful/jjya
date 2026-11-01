@@ -84,7 +84,7 @@ function render() {
     if (pending && pending.id === item[0] && pending.category === category.value) row.className = 'selected';
     const group = document.createElement('td'); group.textContent = item[1];
     const risk = document.createElement('td');
-    const button = document.createElement('button'); button.className = 'item'; button.textContent = item[2]; button.addEventListener('click', () => generate(item)); risk.append(button);
+    const button = document.createElement('button'); button.className = 'item'; button.textContent = item[2]; button.setAttribute('aria-pressed', String(Boolean(pending && pending.id === item[0] && pending.category === category.value))); button.addEventListener('click', () => { if (pending && pending.id === item[0] && pending.category === category.value) clearRiskSelection(); else generate(item); }); risk.append(button);
     const count = document.createElement('td'); count.textContent = `${usage(category.value, item[0])}회`;
     row.append(group, risk, count); items.append(row);
   });
@@ -124,7 +124,8 @@ function renderInspections() {
     button.setAttribute('aria-pressed', String(inspectionSelections[i] === j));
     button.addEventListener('click', () => {
       if (copyButton.dataset.copying) return;
-      const next = {...inspectionSelections, [i]:j};
+      const next = {...inspectionSelections};
+      if (next[i] === j) delete next[i]; else next[i] = j;
       if (applyInspectionSelection(next)) renderInspections();
     });
     cell.append(button);
