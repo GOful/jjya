@@ -79,7 +79,7 @@ const keyFor = (group, id) => group === '전체' ? String(id) : `${group}|${id}`
 const usage = (group, id) => counts[keyFor(group, id)] || 0;
 function render() {
   items.replaceChildren();
-  DATA.filter(item => category.value === '전체' || item[1].split(',').includes(category.value)).forEach(item => {
+  DATA.filter(item => category.value === '전체' || item[1].split(',').includes(category.value)).sort((a,b) => usage(category.value,b[0]) - usage(category.value,a[0]) || a[0] - b[0]).forEach(item => {
     const row = document.createElement('tr');
     if (pending && pending.id === item[0] && pending.category === category.value) row.className = 'selected';
     const group = document.createElement('td'); group.textContent = item[1];
@@ -115,7 +115,7 @@ function renderInspections() {
   const [title,hint,entries] = INSPECTIONS[i];
   inspectionStart.value = inspectionPeriods[i].start; inspectionEnd.value = inspectionPeriods[i].end;
   const body = document.querySelector('#inspection-items'); body.replaceChildren();
-  entries.forEach((text,j) => {
+  entries.map((text,j) => ({text,j})).sort((a,b) => (counts[inspectionKey(i,b.j)] || 0) - (counts[inspectionKey(i,a.j)] || 0) || a.j - b.j).forEach(({text,j}) => {
     const row = document.createElement('tr');
     if (inspectionSelections[i] === j) row.className = 'selected';
     const number = document.createElement('td'); number.textContent = j+1;
