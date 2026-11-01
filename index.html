@@ -10,11 +10,13 @@ input{font:inherit}input[type=date]{padding:8px;border:1px solid #bacbd7;border-
 #inspection-status:empty,#inspection-selected:empty{display:none}
 #risk-selected:empty{display:none}#risk-selected,#inspection-selected{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.selection-chip{display:inline-flex;align-items:center;gap:8px;max-width:100%;padding:8px 12px;background:#e9f6f1;border-radius:10px;font-size:13px;line-height:1.6}.selection-chip span{overflow-wrap:anywhere}.remove-selection{flex-shrink:0;background:transparent;color:#176654;font-size:24px;padding:0 6px;line-height:1.3}.remove-selection:hover{background:#cce8de}
 #misc-selected{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}#misc-selected:empty,#misc-status:empty{display:none}#misc-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}#misc-items button{display:flex;align-items:center;gap:10px;text-align:left;padding:12px;border:1px solid #dbe4eb;border-radius:8px;background:#fff;color:#203c50;line-height:1.5}#misc-items button:hover{background:#f2f7f5}#misc-items button.selected{background:#e9f6f1;border-color:#72bda9}#misc-items .number{color:#607588;flex-shrink:0;font-variant-numeric:tabular-nums}@media(max-width:700px){#misc-items{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:420px){#misc-items{grid-template-columns:1fr}}
+.inspection-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:18px 0}.inspection-columns>.card{margin:0;min-width:0;padding:20px}.inspection-columns td,.inspection-columns th{padding:10px}.inspection-columns select{max-width:100%}.inspection-columns .bar>label{white-space:nowrap}.inspection-columns .table-wrap{height:360px}.inspection-columns td:first-child{max-width:105px}.inspection-columns .bar{min-height:108px;align-content:flex-start}@media(max-width:900px){.inspection-columns{grid-template-columns:1fr}.inspection-columns .bar{min-height:0}}@media(max-width:600px){.inspection-columns>.card{padding:16px}}
 </style>
 </head>
 <body>
 <main>
 <header><h1>일일업무일지 생성기</h1></header>
+<div class="inspection-columns">
 <section class="card" aria-labelledby="list-heading">
 <h2 id="list-heading">1. 위험예지훈련</h2>
 <div id="notice" role="alert" hidden></div>
@@ -31,6 +33,7 @@ input{font:inherit}input[type=date]{padding:8px;border:1px solid #bacbd7;border-
 </div>
 <p id="inspection-status" role="status" aria-live="polite"></p>
 </section>
+</div>
 <section class="card" aria-labelledby="misc-heading">
 <h2 id="misc-heading">3. 기타업무</h2>
 <div id="misc-items" role="group" aria-label="기타업무 선택"></div>
