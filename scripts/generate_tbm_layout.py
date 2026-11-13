@@ -13,7 +13,9 @@ for i,c in enumerate(tbl.findall('.//{%s}tc'%HP)):
  color=fill[0].get('faceColor') if fill else None
  col=int(addr.get('colAddr'));cs=int(span.get('colSpan'));row=int(addr.get('rowAddr'));rs=int(span.get('rowSpan'))
  labels=[''.join(p.itertext()) for p in c.find('{%s}subList'%HP).findall('{%s}p'%HP)]
- cells.append(dict(index=i,row=row,col=col,rowSpan=rs,colSpan=cs,width=int(sz.get('width')),height=int(sz.get('height')),text='\n'.join(labels),background=color if color and color!='none' else 'white'))
+ border=header.xpath('//*[local-name()="borderFill"][@id="'+c.get('borderFillIDRef')+'"]')[0]
+ borders={side:dict(border.find('{http://www.hancom.co.kr/hwpml/2011/head}'+side+'Border').attrib) for side in ['left','right','top','bottom']}
+ cells.append(dict(borders=borders,diagonal=border.find('{http://www.hancom.co.kr/hwpml/2011/head}slash').get('type')!='NONE',index=i,row=row,col=col,rowSpan=rs,colSpan=cs,width=int(sz.get('width')),height=int(sz.get('height')),text='\n'.join(labels),background=color if color and color!='none' else 'white'))
  A.append([1 if col<=j<col+cs else 0 for j in range(count)]);b.append(int(sz.get('width')))
 # Least squares with a small regularizer handles integer rounding in merged-cell sizes.
 M=[[sum(a[i]*a[j] for a in A)+(1e-7 if i==j else 0) for j in range(count)]+[sum(a[i]*v for a,v in zip(A,b))+1e-7*4000] for i in range(count)]

@@ -39,6 +39,9 @@ with sync_playwright() as p:
     assert page.locator('#tbm-cell-6 #tbm-area').input_value()=='시험 변전소 <A&B>'
     assert '수정 안전대책 <절연> & 보호구' in page.locator('#tbm-plan-risk-summary').inner_text()
     assert page.locator('#tbm-document-table td').count()==49
+    assert page.locator('#tbm-cell-5').get_attribute('colspan')=='2'
+    assert page.locator('#tbm-cell-8').get_attribute('colspan')=='6'
+    assert page.locator('#tbm-cell-35').get_attribute('colspan')=='2'
     assert page.evaluate("TBM_FORM_LAYOUT.cells.every(cell=>{const el=document.querySelector('#tbm-cell-'+cell.index);return el.rowSpan===cell.rowSpan&&el.colSpan===cell.colSpan;})")
     assert page.locator('#generator-tab-tbm').get_attribute('aria-pressed')=='true'
     assert page.locator('#generator-tab-daily').get_attribute('aria-pressed')=='false'
@@ -61,7 +64,8 @@ with sync_playwright() as p:
         doc=E.fromstring(z.read('Contents/section0.xml'));cells=doc.findall('.//{%s}tc'%HP)
         assert len(cells)==49
         text=lambda i:''.join(cells[i].itertext())
-        assert '2026. 11. 14. 토요일' in text(0)
+        assert '2026. 11. 14. (토) 18:10 ~ 18:30' in text(0)
+        assert '※ 전체 유해‧위험요인은 위험성평가표 참고' in text(10)
         assert '시험 변전소 <A&B>' in text(6)
         assert '테스트교관' in text(6) and '시험참석자' in text(6)
         assert '소화설비 교육' in text(6)

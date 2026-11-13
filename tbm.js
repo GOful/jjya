@@ -17,6 +17,8 @@
     tr.style.height=`${rowHeight}px`;
     source.forEach(cell=>{
       const td=document.createElement('td');td.id=`tbm-cell-${cell.index}`;td.dataset.sourceCell=cell.index;td.rowSpan=cell.rowSpan;td.colSpan=cell.colSpan;
+      for(const [side,border] of Object.entries(cell.borders||{})){td.style['border'+side[0].toUpperCase()+side.slice(1)]=border.type==='NONE'?'none':`${border.width} solid ${border.color}`;}
+      if(cell.diagonal)td.style.backgroundImage='linear-gradient(to bottom right, transparent calc(50% - .5px), #222 50%, transparent calc(50% + .5px))';
       td.style.backgroundColor=cell.background;td.textContent=cell.text;
       if(cell.index<=4)td.classList.add('document-top-cell');
       if([1,2,3].includes(cell.index))td.classList.add('document-approval');
@@ -28,22 +30,22 @@
   $('tbm-paper-title').textContent=layout.title;
   layout.footer.forEach(line=>{const p=document.createElement('p');p.textContent=line;$('tbm-legal').append(p);});
   const put=(index,html)=>{$(`tbm-cell-${index}`).innerHTML=html;};
-  put(0,`<div class="document-line">□ 소　　속 : <input id="tbm-department" aria-label="소속" value="대구은행변전분소" required maxlength="40"></div><div class="document-line">□ 교육일시 : <input id="tbm-date" aria-label="교육일자" type="date" required><span id="tbm-weekday"></span></div><div class="document-line">□ 교육장소 : <input id="tbm-location" aria-label="교육장소" value="분소사무실" required maxlength="40"></div>`);
+  put(0,`<div class="document-line">□ 소　　속 : <input id="tbm-department" aria-label="소속" value="대구은행 변전분소" required maxlength="40"></div><div class="document-line">□ 교육일시 : <input id="tbm-date" aria-label="교육일자" type="date" required><span id="tbm-weekday"></span><input id="tbm-education-start" aria-label="교육 시작" type="time" value="18:10" required> ~ <input id="tbm-education-end" aria-label="교육 종료" type="time" value="18:30" required></div><div class="document-line">□ 교육장소 : <input id="tbm-location" aria-label="교육장소" value="분소 사무실" required maxlength="40"></div>`);
   put(6,`<div class="document-work-title">(<select id="tbm-shift" aria-label="근무"><option>야간</option><option>주간</option></select>) <select id="tbm-work-preset" aria-label="작업 종류"><option>변전설비 일상점검</option><option>MCC설비 점검</option><option>수전선로 점검</option><option>직접 입력</option></select><input id="tbm-work-title" aria-label="작업명" value="변전설비 일상점검" required maxlength="60" hidden><span id="tbm-plan-people"></span></div>
-  <div class="document-line">- 작업일시: <input id="tbm-start" aria-label="작업 시작" type="time" value="18:00" required> ~ <input id="tbm-end" aria-label="작업 종료" type="time" value="00:20" required></div>
+  <div class="document-line">- 작업일시: <input id="tbm-start" aria-label="작업 시작" type="time" value="18:30" required> ~ <input id="tbm-end" aria-label="작업 종료" type="time" value="00:20" required></div>
   <label class="document-line">- 작업구간: <input id="tbm-area" aria-label="작업구간" placeholder="작업구간 입력" required maxlength="60"></label>
   <label class="document-line">- 작업순서: <input id="tbm-order" aria-label="작업순서" value="AC반 → DC반 → 기타(RTU 및 충전기반)" required maxlength="120"></label>
   <div class="document-methods"><span>- 작업방법:</span><div>
-  <label><input type="checkbox" name="tbm-method" value="계전기 및 원격소장치 LED 점등상태 육안 점검" checked> 계전기 및 원격소장치 LED 점등상태 육안 점검</label>
-  <label><input type="checkbox" name="tbm-method" value="소공간소화장치 상태 이상 유무 확인" checked> 소공간소화장치 상태 이상 유무 확인</label>
-  <label><input type="checkbox" name="tbm-method" value="각종 지시계기 동작상태 확인" checked> 각종 지시계기 동작상태 확인</label>
+  <label><input type="checkbox" name="tbm-method" value="배전반내 각종 케이블 외관 상태 점검" checked> 배전반내 각종 케이블 외관 상태 점검</label>
+  <label><input type="checkbox" name="tbm-method" value="변압기 소음 및 온도 이상유무 확인" checked> 변압기 소음 및 온도 이상유무 확인</label>
+  <label><input type="checkbox" name="tbm-method" value="원격소장치 표시등 점등상태 및 통신상태 점검" checked> 원격소장치 표시등 점등상태 및 통신상태 점검</label>
   <details><summary>작업방법 추가</summary><textarea id="tbm-extra-methods" aria-label="추가 작업방법" rows="1" maxlength="300" placeholder="한 줄에 한 항목"></textarea></details>
   </div></div>
   <label class="document-line">- 작업원별 임무 및 작업장 이동방법: <input id="tbm-duties" aria-label="작업원별 임무 및 이동방법" value="육안 점검 실시, 열차를 통한 이동" required maxlength="100"></label>
   <div>- 위험요인 안전조치 및 교육:</div><div id="tbm-plan-risk-summary"></div>
   <div class="document-education">ㅇ <select id="tbm-extra-education" aria-label="추가 교육"><option value="">추가 교육 없음</option><option>소화설비 교육</option><option>전기안전수칙 교육</option><option>비상대응 및 연락체계 교육</option></select><input id="tbm-custom-education" aria-label="기타 교육 내용" placeholder="기타 교육 내용" maxlength="100"></div>`);
   put(8,`<span>유해·위험요인</span><details id="tbm-risk-picker" class="document-risk-picker"><summary>항목 선택</summary><div class="document-risk-menu"><label>분류 <select id="tbm-risk-category"><option>전체</option><option>일상</option><option>MCC</option><option>3개월</option><option>6개월</option><option>1년</option><option>수전선로</option></select></label><div id="tbm-risk-list"></div></div></details>`);
-  put(10,'<div id="tbm-selected-risks"></div>');put(11,'<div id="tbm-selected-rules"></div>');
+  put(10,'<div id="tbm-selected-risks"></div><p>※ 전체 유해‧위험요인은 위험성평가표 참고</p>');put(11,'<div id="tbm-selected-rules"></div>');
   const checks=['안전보호구 착용 상태','위험요인 안전조치 확인','작업통제 방법 및 준수 여부 확인'];
   function outcome(target,label){
     const wrap=document.createElement('span');wrap.className='document-outcome';
@@ -100,7 +102,7 @@
   document.addEventListener('jjya:catalog-updated',refreshCatalog);$('tbm-risk-category').addEventListener('change',renderRisks);
   function values(){
     const date=text('tbm-date'),parsed=date?new Date(`${date}T12:00:00+09:00`):null;
-    const educationDate=parsed?`${date.replaceAll('-','. ')}. ${new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'long'}).format(parsed)}`:'';
+    const educationDate=parsed?`${date.replaceAll('-','. ')}. (${new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'short'}).format(parsed)}) ${text('tbm-education-start')} ~ ${text('tbm-education-end')}`:'';
     const people=Array.from({length:4},(_,i)=>({name:text(`tbm-attendee-${i}`),fitness:text(`tbm-fitness-${i}`)}));
     const leader=text('tbm-leader'),names=[leader,...people.map(person=>person.name)].filter(Boolean).join(', ');
     const risks=[...selected.values()].map(item=>({risk:item.risk.trim(),rules:item.rules.trim()}));
@@ -121,7 +123,7 @@
     const data=values();
     const names=[data.leader,...data.attendees.map(person=>person.name)].filter(Boolean);
     $('tbm-plan-people').textContent=names.length?'('+names.join(', ')+')':'';
-    $('tbm-weekday').textContent=data.educationDate?data.educationDate.split(' ').at(-1):'';
+    $('tbm-weekday').textContent=data.educationDate?data.educationDate.match(/\([^)]+\)/)?.[0]||'':'';
     $('tbm-plan-risk-summary').textContent=data.risks.map(risk=>`ㅇ ${risk.risk}\n   - ${risk.rules}`).join('\n');
   }
   $('tbm-form').addEventListener('input',preview);
