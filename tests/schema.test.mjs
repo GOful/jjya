@@ -108,3 +108,37 @@ test('team migration assigns old counts to 갑조 and isolates counters/copies a
     await assert.rejects(db.query("select public.team_usage_counts('갑조')"),/permission denied/);
   }finally{await db.close();}
 });
+test('manual counts: atomic delta, retry idempotence, zero floor, copy semantics and team isolation',async()=>{
+  const db=await database();
+  try{
+    await db.exec(await sql('schema.sql'));await db.exec(await sql('seed.sql'));await db.exec(await sql('team-schema.sql'));await db.exec(await sql('count-editing-schema.sql'));await asUser(db);
+    let n=1;const request=()=>`40000000-0000-0000-0000-${String(n++).padStart(12,'0')}`;
+    const adjust=async(team,key,delta,id=request())=>(await db.query('select public.adjust_usage_count($1,$2,$3,$4) c',[team,key,delta,id])).rows[0].c;
+    const retry=request();assert.equal((await adjust('갑조','일상|1',1,retry))['일상|1'],1);
+    assert.equal((await adjust('갑조','일상|1',1,retry))['일상|1'],1);
+    await assert.rejects(adjust('을조','일상|1',1,retry),/REQUEST_ID_CONFLICT/);
+    assert.equal((await adjust('갑조','일상|1',-1))['일상|1'],0);
+    const zeroRetry=request();assert.equal((await adjust('갑조','일상|1',-1,zeroRetry))['일상|1'],0);
+    const log='41000000-0000-0000-0000-000000000001';
+    await db.query('select public.save_work_log_for_team($1,$2,0,$3,$4,$5)',['갑조',log,'본문',{},['일상|1','inspection:0:0']]);
+    // Retrying a decrement originally made at zero must not subtract a later copy.
+    assert.equal((await adjust('갑조','일상|1',-1,zeroRetry))['일상|1'],1);
+    assert.equal((await adjust('갑조','일상|1',-1))['일상|1'],0);
+    await db.query('select public.save_work_log_for_team($1,$2,1,$3,$4,$5)',['갑조',log,'본문',{},['일상|1','inspection:0:0']]);
+    assert.equal((await db.query("select public.team_usage_counts('갑조') c")).rows[0].c['일상|1'],0);
+    assert.equal((await adjust('갑조','inspection:0:0',1))['inspection:0:0'],2);
+    assert.equal((await adjust('을조','일상|1',1))['일상|1'],1);
+    assert.equal((await db.query("select public.team_usage_counts('갑조') c")).rows[0].c['일상|1'],0);
+    assert.deepEqual((await db.query("select public.team_usage_counts('병조') c")).rows[0].c,{});
+    assert.equal((await db.query("select usage_count from public.team_inspection_item_usage where team='갑조' and type_id=1 and item_no=1")).rows[0].usage_count,2);
+    assert.equal((await db.query('select count(*)::integer n from public.copy_events')).rows[0].n,2);
+    await assert.rejects(adjust('갑조','invalid:key',1),/INVALID_ITEM_KEY/);
+    await assert.rejects(adjust('갑조','일상|1',5),/INVALID_ADJUSTMENT/);
+    await assert.rejects(db.query('delete from public.usage_adjustments'),/permission denied/);
+    await db.exec('reset role');await db.exec(await sql('migrate-count-editing.sql'));await asUser(db);
+    assert.equal((await db.query("select public.team_usage_counts('갑조') c")).rows[0].c['inspection:0:0'],2);
+    assert.equal((await db.query("select public.team_usage_counts('을조') c")).rows[0].c['일상|1'],1);
+    await db.exec('reset role;set role anon');
+    await assert.rejects(adjust('갑조','일상|1',1),/permission denied/);
+  }finally{await db.close();}
+});

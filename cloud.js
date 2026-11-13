@@ -102,6 +102,11 @@
         return db('rpc/shared_usage_counts',{method:'POST',body:{}});
       }
     },
+    async adjustCount(team,key,delta,requestId) {
+      validTeam(team);
+      try{return await db('rpc/adjust_usage_count',{method:'POST',body:{p_team:team,p_item_key:key,p_delta:delta,p_request_id:requestId}});}
+      catch(error){if(error.status===404)throw new Error('COUNT_EDIT_MIGRATION_REQUIRED');throw error;}
+    },
     async load(id) {
       const rows = await db(`work_logs?select=*&id=eq.${encodeURIComponent(id)}`);
       if (!rows.length) throw new Error('저장된 일지가 없습니다.');

@@ -1,0 +1,448 @@
+-- EXISTING PROJECTS: run the entire file. Preserves records and team counts.
+begin;
+-- EXISTING PROJECTS: run the entire file. Existing data belongs to 갑조.
+-- Existing projects: run the ENTIRE file in SQL Editor. Keep old content/counts/logs.
+-- A private archive retains the old JSON for recovery; the app never reads it after migration.
+-- Run once in Supabase SQL Editor. Enable Anonymous Sign-Ins in Auth settings.
+-- Public shared app: every signed-in anonymous visitor can read and edit shared data.
+create or replace function public.can_use_shared_app() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select auth.uid() is not null;
+$$;
+revoke all on function public.can_use_shared_app() from public, anon;
+grant execute on function public.can_use_shared_app() to authenticated;
+
+create table if not exists public.catalog_revision (
+  id boolean primary key default true check (id),
+  version integer not null default 1
+);
+insert into public.catalog_revision(id) values (true) on conflict do nothing;
+create table if not exists public.risk_trainings (
+  id integer primary key check (id > 0),
+  categories text[] not null check (cardinality(categories) > 0),
+  risk_text text not null check (length(trim(risk_text)) > 0),
+  safety_rules text not null check (length(trim(safety_rules)) > 0)
+);
+create table if not exists public.inspection_types (
+  id integer primary key check (id > 0),
+  name text not null check (length(trim(name)) > 0),
+  reference_period text not null default ''
+);
+create table if not exists public.inspection_items (
+  type_id integer not null references public.inspection_types(id),
+  item_no integer not null check (item_no > 0),
+  content text not null check (length(trim(content)) > 0),
+  primary key (type_id,item_no)
+);
+create table if not exists public.misc_tasks (
+  id integer primary key check (id > 0),
+  title text not null check (length(trim(title)) > 0),
+  log_text text not null check (length(trim(log_text)) > 0)
+);
+create table if not exists public.work_logs (
+  id uuid primary key,
+  body text not null check (length(body) <= 100000),
+  state jsonb not null check (jsonb_typeof(state) = 'object'),
+  version integer not null default 1,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id) on delete set null
+);
+create table if not exists public.copy_events (
+  log_id uuid not null references public.work_logs(id) on delete cascade,
+  item_key text not null check (length(item_key) between 1 and 100),
+  copied_at timestamptz not null default now(),
+  copied_by uuid references auth.users(id) on delete set null,
+  primary key (log_id, item_key)
+);
+create table if not exists public.work_log_copies (
+  id bigint generated always as identity primary key,
+  log_id uuid not null references public.work_logs(id) on delete cascade,
+  log_version integer not null,
+  body text not null,
+  state jsonb not null,
+  copied_at timestamptz not null default clock_timestamp(),
+  copied_by uuid references auth.users(id) on delete set null
+);
+create index if not exists work_log_copies_latest_idx on public.work_log_copies(copied_at desc,id desc);
+alter table public.catalog_revision enable row level security;
+drop policy if exists shared_read on public.catalog_revision;
+create policy shared_read on public.catalog_revision for select to authenticated using (public.can_use_shared_app());
+revoke all on public.catalog_revision from anon, authenticated;
+grant select on public.catalog_revision to authenticated;
+alter table public.risk_trainings enable row level security;
+drop policy if exists shared_read on public.risk_trainings;
+create policy shared_read on public.risk_trainings for select to authenticated using (public.can_use_shared_app());
+revoke all on public.risk_trainings from anon, authenticated;
+grant select on public.risk_trainings to authenticated;
+alter table public.inspection_types enable row level security;
+drop policy if exists shared_read on public.inspection_types;
+create policy shared_read on public.inspection_types for select to authenticated using (public.can_use_shared_app());
+revoke all on public.inspection_types from anon, authenticated;
+grant select on public.inspection_types to authenticated;
+alter table public.inspection_items enable row level security;
+drop policy if exists shared_read on public.inspection_items;
+create policy shared_read on public.inspection_items for select to authenticated using (public.can_use_shared_app());
+revoke all on public.inspection_items from anon, authenticated;
+grant select on public.inspection_items to authenticated;
+alter table public.misc_tasks enable row level security;
+drop policy if exists shared_read on public.misc_tasks;
+create policy shared_read on public.misc_tasks for select to authenticated using (public.can_use_shared_app());
+revoke all on public.misc_tasks from anon, authenticated;
+grant select on public.misc_tasks to authenticated;
+alter table public.work_logs enable row level security;
+drop policy if exists shared_read on public.work_logs;
+create policy shared_read on public.work_logs for select to authenticated using (public.can_use_shared_app());
+revoke all on public.work_logs from anon, authenticated;
+grant select on public.work_logs to authenticated;
+alter table public.copy_events enable row level security;
+drop policy if exists shared_read on public.copy_events;
+create policy shared_read on public.copy_events for select to authenticated using (public.can_use_shared_app());
+revoke all on public.copy_events from anon, authenticated;
+grant select on public.copy_events to authenticated;
+alter table public.work_log_copies enable row level security;
+drop policy if exists shared_read on public.work_log_copies;
+create policy shared_read on public.work_log_copies for select to authenticated using (public.can_use_shared_app());
+revoke all on public.work_log_copies from anon, authenticated;
+grant select on public.work_log_copies to authenticated;
+drop policy if exists shared_content_update on public.risk_trainings;
+create policy shared_content_update on public.risk_trainings for update to authenticated using (public.can_use_shared_app()) with check (public.can_use_shared_app());
+drop policy if exists shared_content_update on public.inspection_types;
+create policy shared_content_update on public.inspection_types for update to authenticated using (public.can_use_shared_app()) with check (public.can_use_shared_app());
+drop policy if exists shared_content_update on public.inspection_items;
+create policy shared_content_update on public.inspection_items for update to authenticated using (public.can_use_shared_app()) with check (public.can_use_shared_app());
+drop policy if exists shared_content_update on public.misc_tasks;
+create policy shared_content_update on public.misc_tasks for update to authenticated using (public.can_use_shared_app()) with check (public.can_use_shared_app());
+grant update(categories,risk_text,safety_rules) on public.risk_trainings to authenticated;
+grant update(name,reference_period) on public.inspection_types to authenticated;
+grant update(content) on public.inspection_items to authenticated;
+grant update(title,log_text) on public.misc_tasks to authenticated;
+create or replace function public.bump_catalog_revision() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin update public.catalog_revision set version=version+1 where id=true; return null; end;
+$$;
+revoke all on function public.bump_catalog_revision() from public,anon,authenticated;
+drop trigger if exists catalog_changed on public.risk_trainings;
+create trigger catalog_changed after insert or update or delete on public.risk_trainings for each statement execute function public.bump_catalog_revision();
+drop trigger if exists catalog_changed on public.inspection_types;
+create trigger catalog_changed after insert or update or delete on public.inspection_types for each statement execute function public.bump_catalog_revision();
+drop trigger if exists catalog_changed on public.inspection_items;
+create trigger catalog_changed after insert or update or delete on public.inspection_items for each statement execute function public.bump_catalog_revision();
+drop trigger if exists catalog_changed on public.misc_tasks;
+create trigger catalog_changed after insert or update or delete on public.misc_tasks for each statement execute function public.bump_catalog_revision();
+create or replace function public.shared_usage_counts() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not public.can_use_shared_app() then raise exception 'ANONYMOUS_AUTH_REQUIRED' using errcode = '42501'; end if;
+  return coalesce((select jsonb_object_agg(item_key, n) from
+    (select item_key, count(*) as n from public.copy_events group by item_key) counts), '{}'::jsonb);
+end;
+$$;
+
+-- Save and copy are atomic. Repeated copying of the same log/item is counted once.
+-- expected_version prevents one user from silently overwriting another user's work.
+create or replace function public.save_work_log(
+  p_id uuid, p_expected_version integer, p_body text, p_state jsonb,
+  p_keys text[] default null
+) returns jsonb language plpgsql security definer set search_path = '' as $$
+declare saved public.work_logs; current_version integer;
+begin
+  if not public.can_use_shared_app() then raise exception 'ANONYMOUS_AUTH_REQUIRED' using errcode = '42501'; end if;
+  if length(trim(p_body)) = 0 then raise exception 'EMPTY_LOG'; end if;
+  if p_expected_version = 0 then
+    insert into public.work_logs(id, body, state, updated_by)
+      values (p_id, p_body, p_state, auth.uid()) on conflict do nothing returning * into saved;
+    if saved.id is null then raise exception 'VERSION_CONFLICT'; end if;
+  else
+    select version into current_version from public.work_logs where id = p_id for update;
+    if current_version is null or current_version <> p_expected_version then raise exception 'VERSION_CONFLICT'; end if;
+    update public.work_logs set body = p_body, state = p_state, version = version + 1,
+      updated_at = now(), updated_by = auth.uid() where id = p_id returning * into saved;
+  end if;
+  if p_keys is not null then
+    if cardinality(p_keys) > 20 then raise exception 'TOO_MANY_KEYS'; end if;
+    insert into public.work_log_copies(log_id,log_version,body,state,copied_by)
+      values (saved.id,saved.version,saved.body,saved.state,auth.uid());
+    insert into public.copy_events(log_id,item_key,copied_by)
+      select p_id, k, auth.uid() from (select distinct unnest(p_keys) as k) keys
+      on conflict do nothing;
+  end if;
+  return jsonb_build_object('version',saved.version,'updated_at',saved.updated_at,
+    'counts',public.shared_usage_counts());
+end;
+$$;
+comment on table public.risk_trainings is '위험예지훈련: 한 항목당 한 행. 분류, 위험 내용, 작업 전 안전수칙';
+comment on table public.inspection_types is '기간별 안전점검 종류: 여름철, 겨울철 등';
+comment on table public.inspection_items is '안전점검 세부 항목: type_id로 점검 종류와 연결';
+comment on table public.misc_tasks is '기타업무: 표시 이름과 업무일지에 넣을 문구';
+comment on table public.catalog_revision is '점검 항목 변경 버전. 동시에 수정할 때 덮어쓰기 방지용';
+comment on table public.work_logs is '현재 저장된 업무일지. state는 선택 상태 복원을 위한 UI 스냅샷';
+comment on table public.copy_events is '사용 횟수 원장. 같은 일지/항목은 한 번만 집계';
+comment on table public.work_log_copies is '복사 시점의 본문과 선택 상태. 이후 저장해도 변경되지 않음';
+
+-- JSON here is an API response only; all content is stored in individual rows.
+create or replace function public.get_app_catalog() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not public.can_use_shared_app() then raise exception 'ANONYMOUS_AUTH_REQUIRED' using errcode='42501'; end if;
+  return jsonb_build_object('version',(select version from public.catalog_revision where id=true),
+    'data',jsonb_build_object(
+      'training',coalesce((select jsonb_agg(jsonb_build_array(id,array_to_string(categories,','),risk_text,safety_rules) order by id) from public.risk_trainings),'[]'::jsonb),
+      'inspections',coalesce((select jsonb_agg(jsonb_build_array(t.name,t.reference_period,
+        coalesce((select jsonb_agg(i.content order by i.item_no) from public.inspection_items i where i.type_id=t.id),'[]'::jsonb)) order by t.id) from public.inspection_types t),'[]'::jsonb),
+      'misc',coalesce((select jsonb_agg(jsonb_build_array(title,log_text) order by id) from public.misc_tasks),'[]'::jsonb)));
+end;
+$$;
+create or replace function public.save_app_catalog(p_expected_version integer, p_data jsonb)
+returns integer language plpgsql security definer set search_path = '' as $$
+declare current_version integer; next_version integer; group_data jsonb; group_pos integer;
+begin
+  if not public.can_use_shared_app() then raise exception 'ANONYMOUS_AUTH_REQUIRED' using errcode='42501'; end if;
+  select version into current_version from public.catalog_revision where id=true for update;
+  if current_version<>p_expected_version then raise exception 'VERSION_CONFLICT'; end if;
+  if jsonb_typeof(p_data->'training') is distinct from 'array'
+    or jsonb_typeof(p_data->'inspections') is distinct from 'array'
+    or jsonb_typeof(p_data->'misc') is distinct from 'array' then raise exception 'INVALID_CATALOG'; end if;
+  if jsonb_array_length(p_data->'training')<>(select count(*) from public.risk_trainings)
+    or jsonb_array_length(p_data->'inspections')<>(select count(*) from public.inspection_types)
+    or jsonb_array_length(p_data->'misc')<>(select count(*) from public.misc_tasks) then raise exception 'INVALID_CATALOG'; end if;
+  if exists(select 1 from jsonb_array_elements(p_data->'training') e where not exists(select 1 from public.risk_trainings where id=(e->>0)::integer))
+    or (select count(distinct e->>0) from jsonb_array_elements(p_data->'training') e)<>(select count(*) from public.risk_trainings) then raise exception 'INVALID_CATALOG'; end if;
+  update public.risk_trainings r set categories=string_to_array(e->>1,','),risk_text=e->>2,safety_rules=e->>3
+    from jsonb_array_elements(p_data->'training') e where r.id=(e->>0)::integer;
+  for group_data,group_pos in select value,ordinality::integer from jsonb_array_elements(p_data->'inspections') with ordinality loop
+    if jsonb_array_length(group_data->2)<>(select count(*) from public.inspection_items where type_id=group_pos) then raise exception 'INVALID_CATALOG'; end if;
+    update public.inspection_types set name=group_data->>0,reference_period=group_data->>1 where id=group_pos;
+    update public.inspection_items i set content=e.value #>> '{}' from jsonb_array_elements(group_data->2) with ordinality e where i.type_id=group_pos and i.item_no=e.ordinality;
+  end loop;
+  update public.misc_tasks m set title=e.value->>0,log_text=e.value->>1 from jsonb_array_elements(p_data->'misc') with ordinality e where m.id=e.ordinality;
+  select version into next_version from public.catalog_revision where id=true;
+  return next_version;
+end;
+$$;
+-- Human-readable usage views; no need to parse copy_events.item_key in the editor.
+create or replace view public.risk_training_usage with (security_invoker=true) as
+select r.id,r.risk_text,c.category,count(e.log_id) as usage_count
+from public.risk_trainings r cross join lateral unnest(array_append(r.categories,'전체')) c(category)
+left join public.copy_events e on e.item_key=case when c.category='전체' then r.id::text else c.category||'|'||r.id::text end
+ group by r.id,r.risk_text,c.category;
+create or replace view public.inspection_item_usage with (security_invoker=true) as
+select t.id as type_id,t.name as type_name,i.item_no,i.content,count(e.log_id) as usage_count
+from public.inspection_types t join public.inspection_items i on i.type_id=t.id
+left join public.copy_events e on e.item_key='inspection:'||(t.id-1)::text||':'||(i.item_no-1)::text
+ group by t.id,t.name,i.item_no,i.content;
+revoke all on public.risk_training_usage, public.inspection_item_usage from anon;
+grant select on public.risk_training_usage, public.inspection_item_usage to authenticated;
+revoke all on function public.shared_usage_counts() from public, anon;
+grant execute on function public.shared_usage_counts() to authenticated;
+revoke all on function public.save_work_log(uuid,integer,text,jsonb,text[]) from public, anon;
+grant execute on function public.save_work_log(uuid,integer,text,jsonb,text[]) to authenticated;
+revoke all on function public.save_app_catalog(integer,jsonb) from public, anon;
+grant execute on function public.save_app_catalog(integer,jsonb) to authenticated;
+revoke all on function public.get_app_catalog() from public, anon;
+grant execute on function public.get_app_catalog() to authenticated;
+
+create schema if not exists jjya_archive;
+revoke all on schema jjya_archive from public, anon, authenticated;
+do $migration$
+declare old_data jsonb;
+begin
+  if to_regclass('public.app_catalog') is not null then
+    select data into old_data from public.app_catalog where id=true;
+    if old_data is null then raise exception 'Legacy catalog is empty; no changes applied'; end if;
+    insert into public.risk_trainings(id,categories,risk_text,safety_rules)
+      select (e->>0)::integer,string_to_array(e->>1,','),e->>2,e->>3 from jsonb_array_elements(old_data->'training') e on conflict do nothing;
+    insert into public.inspection_types(id,name,reference_period)
+      select ordinality::integer,value->>0,value->>1 from jsonb_array_elements(old_data->'inspections') with ordinality on conflict do nothing;
+    insert into public.inspection_items(type_id,item_no,content)
+      select g.ordinality::integer,i.ordinality::integer,i.value #>> '{}' from jsonb_array_elements(old_data->'inspections') with ordinality g cross join lateral jsonb_array_elements(g.value->2) with ordinality i on conflict do nothing;
+    insert into public.misc_tasks(id,title,log_text)
+      select ordinality::integer,value->>0,value->>1 from jsonb_array_elements(old_data->'misc') with ordinality on conflict do nothing;
+    alter table public.app_catalog set schema jjya_archive;
+    alter table jjya_archive.app_catalog rename to app_catalog_legacy;
+    revoke all on jjya_archive.app_catalog_legacy from anon,authenticated;
+  end if;
+end;
+$migration$;
+-- Old copies have no immutable snapshot. Preserve each copied log's current state once.
+insert into public.work_log_copies(log_id,log_version,body,state,copied_at,copied_by)
+select l.id,l.version,l.body,l.state,max(e.copied_at),l.updated_by
+from public.work_logs l join public.copy_events e on e.log_id=l.id
+where not exists(select 1 from public.work_log_copies c where c.log_id=l.id)
+group by l.id;
+insert into public.misc_tasks(id,title,log_text) values (7,'서무업무','* 분소행정업무처리') on conflict do nothing;
+notify pgrst, 'reload schema';
+
+-- Team isolation. Existing records are assigned to 갑조 without resetting counts.
+alter table public.work_logs add column if not exists team text not null default '갑조' check (team in ('갑조','을조','병조'));
+alter table public.work_log_copies add column if not exists team text not null default '갑조' check (team in ('갑조','을조','병조'));
+create index if not exists work_logs_team_idx on public.work_logs(team);
+create index if not exists work_log_copies_team_latest_idx on public.work_log_copies(team,copied_at desc,id desc);
+create or replace function public.team_usage_counts(p_team text) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not public.can_use_shared_app() then raise exception 'ANONYMOUS_AUTH_REQUIRED' using errcode='42501'; end if;
+  if p_team is null or p_team not in ('갑조','을조','병조') then raise exception 'INVALID_TEAM'; end if;
+  return coalesce((select jsonb_object_agg(item_key,n) from (
+    select e.item_key,count(*) n from public.copy_events e join public.work_logs l on l.id=e.log_id
+    where l.team=p_team group by e.item_key) c),'{}'::jsonb);
+end;
+$$;
+create or replace function public.shared_usage_counts() returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select public.team_usage_counts('갑조');
+$$;
+create or replace function public.save_work_log_for_team(
+  p_team text,
+  p_id uuid, p_expected_version integer, p_body text, p_state jsonb,
+  p_keys text[] default null
+) returns jsonb language plpgsql security definer set search_path = '' as $$
+declare saved public.work_logs; current_version integer;
+begin
+  if not public.can_use_shared_app() then raise exception 'ANONYMOUS_AUTH_REQUIRED' using errcode = '42501'; end if;
+  if p_team is null or p_team not in ('갑조','을조','병조') then raise exception 'INVALID_TEAM'; end if;
+  if length(trim(p_body)) = 0 then raise exception 'EMPTY_LOG'; end if;
+  if p_expected_version = 0 then
+    insert into public.work_logs(id, body, state, updated_by,team)
+      values (p_id, p_body, p_state || jsonb_build_object('team',p_team), auth.uid(),p_team) on conflict do nothing returning * into saved;
+    if saved.id is null then raise exception 'VERSION_CONFLICT'; end if;
+  else
+    select version into current_version from public.work_logs where id = p_id and team=p_team for update;
+    if current_version is null or current_version <> p_expected_version then raise exception 'VERSION_CONFLICT'; end if;
+    update public.work_logs set body = p_body, state = p_state || jsonb_build_object('team',p_team), version = version + 1,
+      updated_at = now(), updated_by = auth.uid() where id = p_id returning * into saved;
+  end if;
+  if p_keys is not null then
+    if cardinality(p_keys) > 20 then raise exception 'TOO_MANY_KEYS'; end if;
+    insert into public.work_log_copies(log_id,log_version,body,state,copied_by,team)
+      values (saved.id,saved.version,saved.body,saved.state,auth.uid(),p_team);
+    insert into public.copy_events(log_id,item_key,copied_by)
+      select p_id, k, auth.uid() from (select distinct unnest(p_keys) as k) keys
+      on conflict do nothing;
+  end if;
+  return jsonb_build_object('version',saved.version,'updated_at',saved.updated_at,
+    'counts',public.team_usage_counts(p_team));
+end;
+$$;
+
+-- Keep older published clients scoped to 갑조, never to all teams.
+create or replace function public.save_work_log(p_id uuid,p_expected_version integer,p_body text,p_state jsonb,p_keys text[] default null)
+returns jsonb language sql security definer set search_path = '' as $$
+  select public.save_work_log_for_team('갑조',p_id,p_expected_version,p_body,p_state,p_keys);
+$$;
+create or replace function public.latest_team_copy(p_team text) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if not public.can_use_shared_app() then raise exception 'ANONYMOUS_AUTH_REQUIRED' using errcode='42501'; end if;
+  if p_team is null or p_team not in ('갑조','을조','병조') then raise exception 'INVALID_TEAM'; end if;
+  return (select jsonb_build_object('id',log_id,'version',log_version,'body',body,'state',state,'updated_at',copied_at,'team',team)
+    from public.work_log_copies where team=p_team order by copied_at desc,id desc limit 1);
+end;
+$$;
+create or replace view public.team_risk_training_usage with (security_invoker=true) as
+select t.team,r.id,r.risk_text,c.category,count(e.log_id) as usage_count
+from (values ('갑조'),('을조'),('병조')) t(team)
+cross join public.risk_trainings r cross join lateral unnest(array_append(r.categories,'전체')) c(category)
+left join (public.copy_events e join public.work_logs l on l.id=e.log_id)
+  on l.team=t.team and e.item_key=case when c.category='전체' then r.id::text else c.category||'|'||r.id::text end
+ group by t.team,r.id,r.risk_text,c.category;
+create or replace view public.team_inspection_item_usage with (security_invoker=true) as
+select g.team,t.id as type_id,t.name as type_name,i.item_no,i.content,count(e.log_id) as usage_count
+from (values ('갑조'),('을조'),('병조')) g(team)
+cross join public.inspection_types t join public.inspection_items i on i.type_id=t.id
+left join (public.copy_events e join public.work_logs l on l.id=e.log_id)
+  on l.team=g.team and e.item_key='inspection:'||(t.id-1)::text||':'||(i.item_no-1)::text
+ group by g.team,t.id,t.name,i.item_no,i.content;
+revoke all on public.team_risk_training_usage,public.team_inspection_item_usage from anon;
+grant select on public.team_risk_training_usage,public.team_inspection_item_usage to authenticated;
+comment on column public.work_logs.team is '조별 일지 구분. 기존 데이터는 갑조';
+comment on column public.work_log_copies.team is '최근 복사 상태를 복원할 조';
+revoke all on function public.team_usage_counts(text) from public,anon;
+grant execute on function public.team_usage_counts(text) to authenticated;
+revoke all on function public.save_work_log_for_team(text,uuid,integer,text,jsonb,text[]) from public,anon;
+grant execute on function public.save_work_log_for_team(text,uuid,integer,text,jsonb,text[]) to authenticated;
+revoke all on function public.latest_team_copy(text) from public,anon;
+grant execute on function public.latest_team_copy(text) to authenticated;
+revoke all on function public.shared_usage_counts() from public,anon;
+grant execute on function public.shared_usage_counts() to authenticated;
+revoke all on function public.save_work_log(uuid,integer,text,jsonb,text[]) from public,anon;
+grant execute on function public.save_work_log(uuid,integer,text,jsonb,text[]) to authenticated;
+notify pgrst, 'reload schema';
+
+
+-- Run after team-schema.sql. Adjustments are separate from immutable copy history.
+create table if not exists public.usage_adjustments (
+  request_id uuid primary key,
+  team text not null check (team in ('갑조','을조','병조')),
+  item_key text not null check (length(item_key) between 1 and 100),
+  requested_delta smallint not null check (requested_delta in (-1,1)),
+  delta smallint not null check (delta in (-1,0,1)),
+  adjusted_at timestamptz not null default clock_timestamp(),
+  adjusted_by uuid references auth.users(id) on delete set null
+);
+alter table public.usage_adjustments enable row level security;
+drop policy if exists shared_read on public.usage_adjustments;
+create policy shared_read on public.usage_adjustments for select to authenticated using (public.can_use_shared_app());
+revoke all on public.usage_adjustments from anon,authenticated;
+grant select on public.usage_adjustments to authenticated;
+create index if not exists usage_adjustments_team_key_idx on public.usage_adjustments(team,item_key);
+create or replace view public.effective_usage_counts with (security_invoker=true) as
+select team,item_key,greatest(sum(n),0)::bigint as usage_count from (
+  select l.team,e.item_key,count(*)::bigint n from public.copy_events e join public.work_logs l on l.id=e.log_id group by l.team,e.item_key
+  union all
+  select team,item_key,sum(delta)::bigint n from public.usage_adjustments group by team,item_key
+) totals group by team,item_key;
+revoke all on public.effective_usage_counts from anon;
+grant select on public.effective_usage_counts to authenticated;
+create or replace function public.team_usage_counts(p_team text) returns jsonb
+language plpgsql volatile security definer set search_path = '' as $$
+begin
+  if not public.can_use_shared_app() then raise exception 'ANONYMOUS_AUTH_REQUIRED' using errcode='42501'; end if;
+  if p_team is null or p_team not in ('갑조','을조','병조') then raise exception 'INVALID_TEAM'; end if;
+  return coalesce((select jsonb_object_agg(item_key,usage_count) from public.effective_usage_counts where team=p_team),'{}'::jsonb);
+end;
+$$;
+create or replace function public.adjust_usage_count(p_team text,p_item_key text,p_delta integer,p_request_id uuid)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare existing public.usage_adjustments; current_count bigint; actual_delta integer;
+begin
+  if not public.can_use_shared_app() then raise exception 'ANONYMOUS_AUTH_REQUIRED' using errcode='42501'; end if;
+  if p_team is null or p_team not in ('갑조','을조','병조') then raise exception 'INVALID_TEAM'; end if;
+  if p_delta is null or p_delta not in (-1,1) or p_request_id is null then raise exception 'INVALID_ADJUSTMENT'; end if;
+  -- Accept only keys for real training/category or inspection items.
+  if not exists (
+    select 1 from public.risk_trainings r where p_item_key=r.id::text
+      or exists(select 1 from unnest(r.categories) category where p_item_key=category||'|'||r.id::text)
+  ) and not exists (
+    select 1 from public.inspection_items i where p_item_key='inspection:'||(i.type_id-1)::text||':'||(i.item_no-1)::text
+  ) then raise exception 'INVALID_ITEM_KEY'; end if;
+  perform pg_advisory_xact_lock(hashtext(p_team),hashtext(p_item_key));
+  select * into existing from public.usage_adjustments where request_id=p_request_id;
+  if existing.request_id is not null then
+    if existing.team<>p_team or existing.item_key<>p_item_key or existing.requested_delta<>p_delta then raise exception 'REQUEST_ID_CONFLICT'; end if;
+    return public.team_usage_counts(p_team);
+  end if;
+  current_count=coalesce((public.team_usage_counts(p_team)->>p_item_key)::bigint,0);
+  actual_delta=case when p_delta=-1 and current_count=0 then 0 else p_delta end;
+  insert into public.usage_adjustments(request_id,team,item_key,requested_delta,delta,adjusted_by)
+    values (p_request_id,p_team,p_item_key,p_delta,actual_delta,auth.uid());
+  return public.team_usage_counts(p_team);
+end;
+$$;
+create or replace view public.team_risk_training_usage with (security_invoker=true) as
+select t.team,r.id,r.risk_text,c.category,coalesce(e.usage_count,0)::bigint as usage_count
+from (values ('갑조'),('을조'),('병조')) t(team)
+cross join public.risk_trainings r cross join lateral unnest(array_append(r.categories,'전체')) c(category)
+left join public.effective_usage_counts e on e.team=t.team and e.item_key=case when c.category='전체' then r.id::text else c.category||'|'||r.id::text end;
+create or replace view public.team_inspection_item_usage with (security_invoker=true) as
+select g.team,t.id as type_id,t.name as type_name,i.item_no,i.content,coalesce(e.usage_count,0)::bigint as usage_count
+from (values ('갑조'),('을조'),('병조')) g(team)
+cross join public.inspection_types t join public.inspection_items i on i.type_id=t.id
+left join public.effective_usage_counts e on e.team=g.team and e.item_key='inspection:'||(t.id-1)::text||':'||(i.item_no-1)::text;
+comment on table public.usage_adjustments is '조별 수동 횟수 수정 이력. 복사 기록을 삭제하지 않고 +/- 보정. request_id로 재시도 중복 방지';
+revoke all on function public.adjust_usage_count(text,text,integer,uuid) from public,anon;
+grant execute on function public.adjust_usage_count(text,text,integer,uuid) to authenticated;
+revoke all on function public.team_usage_counts(text) from public,anon;
+grant execute on function public.team_usage_counts(text) to authenticated;
+notify pgrst, 'reload schema';
+
+commit;

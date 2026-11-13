@@ -15,6 +15,7 @@ catalog = json.loads(seed)
 logs, counts = {}, {}
 team_counts = {'갑조':counts,'을조':{},'병조':{}}
 copy_snapshots = []
+adjustment_requests = {}
 catalog_version = 1
 server = ThreadingHTTPServer(('127.0.0.1', 0), partial(SimpleHTTPRequestHandler, directory=str(ROOT)))
 threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -38,6 +39,12 @@ def respond(route):
         result = [{'data':catalog,'version':catalog_version}]
     elif path.startswith('/rest/v1/rpc/team_usage_counts'):
         result=team_counts[body['p_team']]
+    elif path.startswith('/rest/v1/rpc/adjust_usage_count'):
+        team,key,delta,identifier=body['p_team'],body['p_item_key'],body['p_delta'],body['p_request_id']
+        if identifier not in adjustment_requests:
+            team_counts[team][key]=max(0,team_counts[team].get(key,0)+delta)
+            adjustment_requests[identifier]=body
+        result=team_counts[team]
     elif path.startswith('/rest/v1/rpc/latest_team_copy'):
         rows=[copy for copy in copy_snapshots if copy.get('team','갑조')==body['p_team']]
         copy=rows[-1] if rows else None
@@ -163,6 +170,48 @@ with sync_playwright() as p:
     second.locator('#output').fill(second.locator('#output').input_value()+'\n을조 미복사 수정')
     switch('갑조');switch('을조')
     assert second.locator('#output').input_value().endswith('을조 미복사 수정')
+    # Count editing must save immediately, stay team-scoped and keep rows stable.
+    second.locator('.count-edit-toggle').first.click()
+    cell=second.locator('[data-count-key="일상|1"]')
+    date_before=second.locator('#last-copied').inner_text()
+    order_before=second.locator('#items tr').evaluate_all('(rows)=>rows.map(row=>row.dataset.itemId)')
+    cell.locator('[data-delta="1"]').click();second.wait_for_function("!document.querySelector('#workspace').disabled")
+    assert cell.locator('.count-value').inner_text()=='1회'
+    cell.locator('[data-delta="1"]').click();second.wait_for_function("!document.querySelector('#workspace').disabled")
+    assert cell.locator('.count-value').inner_text()=='2회'
+    assert second.locator('#items tr').evaluate_all('(rows)=>rows.map(row=>row.dataset.itemId)')==order_before
+    assert counts['일상|1']==1
+    inspection_cell=second.locator('[data-count-key="inspection:0:0"]')
+    inspection_cell.locator('[data-delta="1"]').click();second.wait_for_function("!document.querySelector('#workspace').disabled")
+    assert inspection_cell.locator('.count-value').inner_text()=='1회'
+    inspection_cell.locator('[data-delta="-1"]').click();second.wait_for_function("!document.querySelector('#workspace').disabled")
+    assert inspection_cell.locator('.count-value').inner_text()=='0회'
+    assert inspection_cell.locator('[data-delta="-1"]').is_disabled()
+    assert second.locator('#last-copied').inner_text()==date_before
+    second.locator('.count-edit-toggle').first.click()
+    assert second.locator('.adjust-count').count()==0
+    assert second.locator('#items button').first.inner_text()=='DB에서 수정한 위험예지훈련'
+    second.reload();second.wait_for_function("!document.querySelector('#workspace').disabled")
+    assert second.locator('#items tr td:last-child').first.inner_text()=='2회'
+    # If a response is lost after commit, retry the SAME action without double incrementing.
+    second.locator('.count-edit-toggle').first.click()
+    lost_once=[True]
+    def lossy_adjust(route):
+        if not lost_once[0]:return respond(route)
+        lost_once[0]=False
+        class LostResponse:
+            request=route.request
+            def fulfill(self,**kwargs):
+                route.fulfill(status=500,content_type='application/json',body='{}')
+        respond(LostResponse())
+    second.route('**/rest/v1/rpc/adjust_usage_count',lossy_adjust)
+    retry_cell=second.locator('[data-count-key="일상|3"]')
+    retry_cell.locator('[data-delta="1"]').click();second.wait_for_function("!document.querySelector('#workspace').disabled")
+    assert retry_cell.locator('.count-value').inner_text()=='0회'
+    retry_cell.locator('[data-delta="1"]').click();second.wait_for_function("!document.querySelector('#workspace').disabled")
+    assert retry_cell.locator('.count-value').inner_text()=='1회'
+    assert team_counts['을조']['일상|3']==1
+    second.locator('.count-edit-toggle').first.click()
     # Keep v1 database compatibility until the owner applies migration SQL.
     def legacy_api(route):
         path=route.request.url.split('.supabase.co',1)[1]
