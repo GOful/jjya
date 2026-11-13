@@ -55,7 +55,7 @@ for cell,src in zip(cells,incoming):
         node=cell.find('{%s}%s'%(HP,tag))
         for target,key in mapping.items():node.set(target,src.get(key))
     cell.set('borderFillIDRef',str(base+int(src.get('borderfill-id'))-1))
-    cell.find('{%s}subList'%HP).set('vertAlign','MIDDLE')
+    cell.find('{%s}subList'%HP).set('vertAlign','CENTER')
     for line in cell.findall('.//{%s}linesegarray'%HP):line.getparent().remove(line)
 # Copy static labels only; never names, dates, work contents, signatures or actions.
 for index in [1,2,5,7,8,9,12,13,14,15,16,19,22,25,26,27,28,29,33,34,39,44]:
