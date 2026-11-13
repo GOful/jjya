@@ -7,6 +7,7 @@ function client({stored=true,failCatalog=false,revoked=false,saveConflict=false}
   const calls=[];let active=0,peak=0,fail=failCatalog;
   let catalogVersion=1;
   let trainingRow=[1,'일상','위험 \"인용\", (항목) \\ 경로','첫째 줄\n둘째 줄'];
+  let catalogData={training:[trainingRow],inspections:[['여름철','',['여름 점검1','여름 점검2']]],misc:Array.from({length:6},(_,i)=>[`업무 ${i+1}`,`* 본문 ${i+1}`])};
   const base='https://example.supabase.co';
   const session={access_token:'test-token',refresh_token:'test-refresh',expires_at:Date.now()/1000+3600,user:{id:'test-user'}};
   const values=new Map(stored?[[`jjya.auth:${base}`,JSON.stringify(session)]]:[]);
@@ -20,12 +21,12 @@ function client({stored=true,failCatalog=false,revoked=false,saveConflict=false}
     else if(path==='/auth/v1/signup')result={...session,access_token:revoked?'fresh-token':session.access_token,expires_in:3600};
     else if(path==='/rest/v1/rpc/get_app_catalog'){
       if(fail){fail=false;status=500;result={message:'temporary failure'};}
-      else result={version:catalogVersion,data:{training:[trainingRow],inspections:[],misc:[]}};
+      else result={version:catalogVersion,data:catalogData};
     }else if(path==='/rest/v1/rpc/team_usage_counts')result={[body.p_team]:calls.length};
     else if(path==='/rest/v1/rpc/latest_team_copy')result={id:body.p_team,version:calls.length};
     else if(path==='/rest/v1/rpc/save_app_catalog'){
       if(saveConflict){status=400;result={code:'P0001',message:'VERSION_CONFLICT'};}
-      else {trainingRow=body.p_data.training[0];result=++catalogVersion;}
+      else {catalogData=body.p_data;result=++catalogVersion;}
     }
     else throw new Error(`Unexpected request: ${path}`);
     return {ok:status===200,status,text:async()=>JSON.stringify(result)};
@@ -79,4 +80,23 @@ test('training edits use transactional JSON RPC, preserve IDs/categories and inv
   // Exact retry after a response loss does not write the whole catalog twice.
   await c.api.updateTraining(original,'새 위험내용 "따옴표", (괄호)','새 안전수칙\n차단 확인');
   assert.equal(c.calls.filter(call=>call.path==='/rest/v1/rpc/save_app_catalog').length,writes);
+});
+
+test('inspection and misc edits preserve positions, share common data, reject stale edits and keep exact retries idempotent',async()=>{
+  const c=client();await c.api.start();
+  const inspection={typeIndex:0,itemIndex:0,content:'여름 점검1'};
+  assert.equal((await c.api.updateInspection(inspection,'수정된 점검\n공통')).content,'수정된 점검\n공통');
+  let data=(await c.api.readCatalog()).data;
+  assert.equal(data.inspections[0][2][0],'수정된 점검\n공통');assert.equal(data.inspections[0][2][1],'여름 점검2');
+  await assert.rejects(c.api.updateInspection(inspection,'이전 점검으로 덮어쓰기'),/CONTENT_VERSION_CONFLICT/);
+  const original={index:0,title:'업무 1',logText:'* 본문 1'};
+  const changed=await c.api.updateMisc(original,'검침 관리','* 공통 검침 기록');
+  assert.equal(changed.index,0);assert.equal(changed.logText,'* 공통 검침 기록');
+  data=(await c.api.readCatalog()).data;
+  assert.deepEqual(data.misc[0],['검침 관리','* 공통 검침 기록']);assert.deepEqual(data.misc[1],['업무 2','* 본문 2']);
+  const saves=c.calls.filter(call=>call.path==='/rest/v1/rpc/save_app_catalog').length;
+  await c.api.updateMisc(original,'검침 관리','* 공통 검침 기록');
+  assert.equal(c.calls.filter(call=>call.path==='/rest/v1/rpc/save_app_catalog').length,saves);
+  await assert.rejects(c.api.updateMisc(original,'이전 내용 덮어쓰기','* 실패'),/CONTENT_VERSION_CONFLICT/);
+  await assert.rejects(c.api.updateMisc({index:6,title:'서무업무',logText:'* 분소행정업무처리'},'서무업무','* 수정된 서무업무'),/OFFICE_TASK_MIGRATION_REQUIRED/);
 });

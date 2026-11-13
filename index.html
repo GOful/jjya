@@ -21,7 +21,8 @@ textarea{display:block;width:100%;min-height:310px;padding:18px;border:1px solid
 [hidden]{display:none!important}.workspace{border:0;padding:0;margin:0;min-width:0}.copy-meta{font-size:12px;color:#6b7c89;line-height:1.6;margin:-12px 0 20px}.copy-meta:has(#last-copied:empty):has(#cloud-status:empty){display:none}#cloud-status:empty{display:none}#cloud-status{color:#a1432e;margin:8px 0 0}
 .team-tabs{display:flex;gap:4px;width:fit-content;padding:4px;margin:0 0 20px;border:1px solid #dce4ea;border-radius:10px;background:#eaf0f3}.team-tabs button{min-width:80px;padding:9px 20px;border:0;border-radius:7px;background:transparent;color:#657987;font-size:14px;font-weight:600}.team-tabs button[aria-pressed=true]{background:#fff;color:#176654;box-shadow:0 1px 4px #21364912}.team-tabs button:disabled{opacity:.55}.copy-meta{margin-top:-8px}
 .count-edit-toggle{margin-left:auto;white-space:nowrap;border:1px solid #d6e1e7;border-radius:6px;background:#fff;color:#607588;padding:6px 9px;font-size:11px;font-weight:500}.count-edit-toggle[aria-pressed=true]{background:#edf7f2;color:#176654;border-color:#8cbba7}.editing-counts th:last-child,.editing-counts td:last-child{width:108px}.count-controls{display:flex;align-items:center;justify-content:center;gap:5px}.count-value{font-variant-numeric:tabular-nums;white-space:nowrap}.adjust-count{width:25px;height:27px;display:grid;place-items:center;padding:0;border:1px solid #d5dfe6;border-radius:5px;background:#fff;color:#176654;font-size:17px;flex-shrink:0}.adjust-count:hover:not(:disabled){background:#edf7f2}.adjust-count:disabled{opacity:.3}@media(max-width:480px){.editing-counts td,.editing-counts th{padding-left:6px;padding-right:6px}h2{gap:7px}.count-edit-toggle{padding:6px;font-size:11px}}
-.content-edit-button{white-space:nowrap;border:1px solid #d6e1e7;border-radius:6px;background:#fff;color:#176654;padding:6px 9px;font-size:11px;font-weight:500}.content-edit-button:hover{background:#edf7f2}#training-editor{width:min(620px,calc(100% - 24px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #d6e1e7;border-radius:14px;padding:24px;color:#213649}#training-editor::backdrop{background:#172c4066}#training-editor h2{margin-bottom:8px}#training-editor .field{margin:18px 0}#training-editor textarea{min-height:110px;line-height:1.7;padding:12px}#training-edit-risk{min-height:90px!important}.editor-scope{font-size:12px;color:#607588;margin:0}.editor-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}.editor-actions button{padding:10px 18px;border:1px solid #d6e1e7;border-radius:7px;background:#fff;color:#526779}#save-training{background:#176654;color:#fff;border-color:#176654}#training-edit-status{font-size:13px;line-height:1.7;color:#176654}#training-edit-status:empty{display:none}@media(max-width:480px){.content-edit-button{padding:6px;font-size:11px}#training-editor{padding:18px}}
+.content-edit-button{white-space:nowrap;border:1px solid #d6e1e7;border-radius:6px;background:#fff;color:#176654;padding:6px 9px;font-size:11px;font-weight:500}.content-edit-button:hover{background:#edf7f2}.content-editor{width:min(620px,calc(100% - 24px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #d6e1e7;border-radius:14px;padding:24px;color:#213649}.content-editor::backdrop{background:#172c4066}.content-editor h2{margin-bottom:8px}.content-editor .field{margin:18px 0}.content-editor textarea{min-height:110px;line-height:1.7;padding:12px}#training-edit-risk{min-height:90px!important}.editor-scope{font-size:12px;color:#607588;margin:0}.editor-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}.editor-actions button{padding:10px 18px;border:1px solid #d6e1e7;border-radius:7px;background:#fff;color:#526779}#save-training,#save-extra-content{background:#176654;color:#fff;border-color:#176654}.editor-status{font-size:13px;line-height:1.7;color:#176654}.editor-status:empty{display:none}@media(max-width:480px){.content-edit-button{padding:6px;font-size:11px}.content-editor{padding:18px}}
+.standalone-edit{margin-left:auto}
 </style>
 <script src="supabase-config.js"></script>
 <script src="cloud.js"></script>
@@ -41,7 +42,7 @@ textarea{display:block;width:100%;min-height:310px;padding:18px;border:1px solid
 <div id="risk-selected"></div>
 </section>
 <section class="card" aria-labelledby="inspection-heading">
-<h2 id="inspection-heading"><span class="step">2</span>기간별 안전점검<button type="button" class="count-edit-toggle" aria-pressed="false">횟수 수정</button></h2>
+<h2 id="inspection-heading"><span class="step">2</span>기간별 안전점검<button type="button" class="count-edit-toggle" aria-pressed="false">횟수 수정</button><button type="button" id="edit-inspections" class="content-edit-button">내용 수정</button></h2>
 <div id="inspections">
 <div class="bar inspection-toolbar"><label class="field" for="inspection-category"><span>점검 종류</span><select id="inspection-category"></select></label><label class="field" for="inspection-start"><span>시작일</span><input type="date" id="inspection-start"></label><label class="field" for="inspection-end"><span>종료일</span><input type="date" id="inspection-end"></label></div>
 <div class="table-wrap"><table><thead><tr><th scope="col">번호</th><th scope="col">안전점검 항목</th><th scope="col">사용 횟수</th></tr></thead><tbody id="inspection-items"></tbody></table></div>
@@ -52,7 +53,7 @@ textarea{display:block;width:100%;min-height:310px;padding:18px;border:1px solid
 </div>
 <div class="work-columns">
 <section class="card" aria-labelledby="misc-heading">
-<h2 id="misc-heading"><span class="step">3</span>기타업무</h2>
+<h2 id="misc-heading"><span class="step">3</span>기타업무<button type="button" id="edit-misc" class="content-edit-button standalone-edit">내용 수정</button></h2>
 <div id="misc-items" role="group" aria-label="기타업무 선택"></div>
 <div id="misc-selected"></div><p id="misc-status" role="status" aria-live="polite"></p>
 </section>
@@ -63,15 +64,26 @@ textarea{display:block;width:100%;min-height:310px;padding:18px;border:1px solid
 </div>
 </fieldset>
 
-<dialog id="training-editor" aria-labelledby="training-editor-heading">
+<dialog class="content-editor" id="training-editor" aria-labelledby="training-editor-heading">
 <form id="training-edit-form">
 <h2 id="training-editor-heading">위험예지훈련 내용 수정</h2>
 <p class="editor-scope">갑조 · 을조 · 병조 공통</p>
 <label class="field" for="training-edit-item"><span>항목</span><select id="training-edit-item" required></select></label>
 <label class="field" for="training-edit-risk"><span>위험예지훈련 내용</span><textarea id="training-edit-risk" required maxlength="5000"></textarea></label>
 <label class="field" for="training-edit-rules"><span>작업 전 안전수칙</span><textarea id="training-edit-rules" required maxlength="10000"></textarea></label>
-<p id="training-edit-status" role="status" aria-live="polite"></p>
+<p class="editor-status" id="training-edit-status" role="status" aria-live="polite"></p>
 <div class="editor-actions"><button type="submit" id="save-training">저장</button><button type="button" id="close-training-editor">닫기</button></div>
+</form>
+</dialog>
+<dialog class="content-editor" id="extra-content-editor" aria-labelledby="extra-editor-heading">
+<form id="extra-edit-form">
+<h2 id="extra-editor-heading"></h2><p class="editor-scope">갑조 · 을조 · 병조 공통</p>
+<label class="field" id="extra-group-field" for="extra-edit-group"><span>점검 종류</span><select id="extra-edit-group"></select></label>
+<label class="field" for="extra-edit-item"><span>항목</span><select id="extra-edit-item" required></select></label>
+<label class="field" for="extra-edit-content"><span id="extra-content-label">점검 내용</span><textarea id="extra-edit-content" required maxlength="5000"></textarea></label>
+<label class="field" id="extra-log-field" for="extra-edit-log"><span>업무일지 내용</span><textarea id="extra-edit-log" maxlength="10000"></textarea></label>
+<p class="editor-status" id="extra-edit-status" role="status" aria-live="polite"></p>
+<div class="editor-actions"><button type="submit" id="save-extra-content">저장</button><button type="button" id="close-extra-editor">닫기</button></div>
 </form>
 </dialog>
 </main>
@@ -381,7 +393,7 @@ async function copyText(text) {
 copyButton.addEventListener('click', async () => {
   if (busy || cloudWorking || !pending || !output.value.trim() || (shared?.enabled && !currentUser)) return;
   const selected = pending;
-  const inspectionControls = [...document.querySelectorAll('#inspections button, #inspections input, #inspections select, #misc-items button, #misc-selected button, .team-tabs button, .count-edit-toggle, .adjust-count, #edit-training')];
+  const inspectionControls = [...document.querySelectorAll('#inspections button, #inspections input, #inspections select, #misc-items button, #misc-selected button, .team-tabs button, .count-edit-toggle, .adjust-count, #edit-training, #edit-inspections, #edit-misc')];
   inspectionControls.forEach(control => control.disabled = true);
   busy = true; copyButton.disabled = true; copyButton.dataset.copying = 'true'; category.disabled = true; output.readOnly = true;
   let clipboardDone = false;
@@ -426,6 +438,7 @@ function cloudMessage(message) { cloudStatus.textContent = message; }
 function formatTime(value) { return new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}); }
 function setLastCopied(value) { document.querySelector('#last-copied').textContent = value ? `최근 복사 · ${formatTime(value)}` : ''; }
 function friendlyError(error, fallback = '요청을 완료하지 못했습니다.') {
+  if (error.message?.includes('OFFICE_TASK_MIGRATION_REQUIRED')) return '서무업무를 DB에 등록한 뒤 수정해 주세요. add-office-task.sql을 실행하면 됩니다.';
   if (error.message?.includes('CONTENT_EDIT_MIGRATION_REQUIRED')) return '내용 수정 저장 함수가 없습니다. DB 설정 SQL 적용 상태를 확인해 주세요.';
   if (error.message?.includes('CONTENT_VERSION_CONFLICT')) return '다른 사람이 이 항목을 먼저 수정했습니다. 입력 내용을 따로 복사한 후 창을 닫고 다시 열어주세요.';
   if (error.message?.includes('COUNT_EDIT_MIGRATION_REQUIRED')) return '횟수 수정 설정 SQL을 먼저 실행해 주세요.';
@@ -583,6 +596,83 @@ document.querySelector('#training-edit-form').addEventListener('submit',async ev
     render();trainingEditStatus.textContent='세 조 공통으로 저장했습니다. 새로 생성하는 일지에 적용됩니다.';
   }catch(error){trainingEditStatus.textContent=friendlyError(error,'내용을 저장하지 못했습니다.');}
   finally{trainingSaving=false;controls.forEach(control=>control.disabled=false);}
+});
+const extraEditor=document.querySelector('#extra-content-editor');
+const extraGroup=document.querySelector('#extra-edit-group');
+const extraItem=document.querySelector('#extra-edit-item');
+const extraContent=document.querySelector('#extra-edit-content');
+const extraLog=document.querySelector('#extra-edit-log');
+const extraStatus=document.querySelector('#extra-edit-status');
+let extraKind='',extraCatalog=null,extraSaving=false;
+const extraDrafts=new Map();
+const extraDraftKey=()=>`${extraKind}:${extraGroup.value}:${extraItem.value}`;
+function showExtraFields(){
+  const index=Number(extraItem.value),group=Number(extraGroup.value);
+  const draft=extraDrafts.get(extraDraftKey());
+  extraContent.value=draft?.content ?? (extraKind==='inspection'?extraCatalog.inspections[group][2][index]:extraCatalog.misc[index][0]);
+  extraLog.value=draft?.log ?? (extraKind==='misc'?extraCatalog.misc[index][1]:'');
+  extraStatus.textContent='';
+}
+function fillExtraItems(preferred){
+  extraItem.replaceChildren();
+  if(extraKind==='inspection'){
+    extraCatalog.inspections[Number(extraGroup.value)][2].forEach((text,index)=>{
+      const option=document.createElement('option');option.value=index;option.textContent=`${index+1}. ${text}`;extraItem.append(option);
+    });
+  }else{
+    miscDisplayOrder().forEach((index,position)=>{
+      const option=document.createElement('option');option.value=index;option.textContent=`${position+1}. ${extraCatalog.misc[index][0]}`;extraItem.append(option);
+    });
+  }
+  if(preferred!==undefined && [...extraItem.options].some(option=>option.value===String(preferred)))extraItem.value=preferred;
+  showExtraFields();
+}
+async function openExtraEditor(kind){
+  if(!shared?.enabled){cloudMessage('공통 내용 수정은 DB 연결 상태에서 사용할 수 있습니다.');return;}
+  await cloudAction(async()=>{
+    const catalog=await shared.readCatalog({force:true});validateCatalog(catalog.data);
+    extraKind=kind;extraCatalog=structuredClone(catalog.data);extraDrafts.clear();
+    if(extraCatalog.misc.length===6)extraCatalog.misc.push([...DEFAULT_OFFICE_TASK]);
+    document.querySelector('#extra-editor-heading').textContent=kind==='inspection'?'기간별 안전점검 내용 수정':'기타업무 내용 수정';
+    document.querySelector('#extra-group-field').hidden=kind!=='inspection';
+    document.querySelector('#extra-log-field').hidden=kind!=='misc';extraLog.required=kind==='misc';
+    document.querySelector('#extra-content-label').textContent=kind==='inspection'?'점검 내용':'업무 이름';
+    extraGroup.replaceChildren();extraCatalog.inspections.forEach(([title],i)=>{
+      const option=document.createElement('option');option.value=i;option.textContent=title;extraGroup.append(option);
+    });
+    extraGroup.value=inspectionCategory.value;
+    fillExtraItems(kind==='inspection'?inspectionSelections[Number(extraGroup.value)]:[...miscSelections][0]);
+    extraEditor.showModal();
+  });
+}
+document.querySelector('#edit-inspections').addEventListener('click',()=>openExtraEditor('inspection'));
+document.querySelector('#edit-misc').addEventListener('click',()=>openExtraEditor('misc'));
+extraGroup.addEventListener('change',()=>fillExtraItems());extraItem.addEventListener('change',showExtraFields);
+[extraContent,extraLog].forEach(input=>input.addEventListener('input',()=>extraDrafts.set(extraDraftKey(),{content:extraContent.value,log:extraLog.value})));
+document.querySelector('#close-extra-editor').addEventListener('click',()=>{if(!extraSaving)extraEditor.close();});
+extraEditor.addEventListener('cancel',event=>{if(extraSaving)event.preventDefault();});
+document.querySelector('#extra-edit-form').addEventListener('submit',async event=>{
+  event.preventDefault();if(extraSaving)return;
+  const index=Number(extraItem.value),group=Number(extraGroup.value);
+  const content=extraContent.value.trim(),log=extraLog.value.trim();
+  if(!content||(extraKind==='misc'&&!log)){extraStatus.textContent='내용을 입력하세요.';return;}
+  extraSaving=true;
+  const controls=[...extraEditor.querySelectorAll('button,select,textarea')];controls.forEach(control=>control.disabled=true);extraStatus.textContent='저장 중…';
+  try{
+    if(extraKind==='inspection'){
+      const saved=await shared.updateInspection({typeIndex:group,itemIndex:index,content:extraCatalog.inspections[group][2][index]},content);
+      INSPECTIONS[group][2][index]=saved.content;extraCatalog.inspections[group][2][index]=saved.content;extraContent.value=saved.content;
+      extraItem.selectedOptions[0].textContent=`${index+1}. ${saved.content}`;renderInspections();
+    }else{
+      const original=extraCatalog.misc[index];
+      const saved=await shared.updateMisc({index,title:original[0],logText:original[1]},content,log);
+      MISC_TASKS[index]=[saved.title,saved.logText];extraCatalog.misc[index]=[saved.title,saved.logText];
+      extraContent.value=saved.title;extraLog.value=saved.logText;
+      extraItem.selectedOptions[0].textContent=`${miscDisplayOrder().indexOf(index)+1}. ${saved.title}`;buildMisc();
+    }
+    extraDrafts.delete(extraDraftKey());extraStatus.textContent='세 조 공통으로 저장했습니다. 새로 생성하는 일지에 적용됩니다.';
+  }catch(error){extraStatus.textContent=friendlyError(error,'내용을 저장하지 못했습니다.');}
+  finally{extraSaving=false;controls.forEach(control=>control.disabled=false);}
 });
 workspace.addEventListener('input',()=>{if(shared?.enabled)dirty=true;});
 workspace.addEventListener('click',event=>{if(shared?.enabled&&event.target.closest('.item,.remove-selection,#misc-items button'))dirty=true;});

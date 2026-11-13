@@ -258,6 +258,61 @@ with sync_playwright() as p:
     second.locator('#edit-training').click();second.locator('#training-editor').wait_for(state='visible')
     assert second.locator('#training-editor').bounding_box()['width']<=390
     second.locator('#close-training-editor').click()
+    # Inspection and misc editors share content but preserve old body/counts and stable positions.
+    unchanged_body=first.locator('#output').input_value()
+    unchanged_date=first.locator('#last-copied').inner_text()
+    counts_before=json.dumps(team_counts,sort_keys=True)
+    first.locator('#edit-inspections').click();first.locator('#extra-content-editor').wait_for(state='visible')
+    first.select_option('#extra-edit-group','0');first.select_option('#extra-edit-item','0')
+    first.locator('#extra-edit-content').fill('수정된 여름 점검 "공통"\n추가 사항')
+    first.locator('#save-extra-content').click()
+    first.wait_for_function("document.querySelector('#extra-edit-status').textContent.includes('공통으로 저장')")
+    first.locator('#close-extra-editor').click()
+    assert first.locator('#output').input_value()==unchanged_body
+    assert first.locator('#last-copied').inner_text()==unchanged_date
+    assert catalog['inspections'][0][2][0]=='수정된 여름 점검 "공통"\n추가 사항'
+    first.locator('#edit-misc').click();first.locator('#extra-content-editor').wait_for(state='visible')
+    assert first.locator('#extra-edit-item option').first.inner_text().startswith('1. 서무업무')
+    first.select_option('#extra-edit-item','0')
+    first.locator('#extra-edit-content').fill('검침 관리')
+    first.locator('#extra-edit-log').fill('* 수정된 검침 기록(공통)')
+    first.locator('#save-extra-content').click()
+    first.wait_for_function("document.querySelector('#extra-edit-status').textContent.includes('공통으로 저장')")
+    assert first.locator('#misc-select-0').inner_text().endswith('검침 관리')
+    assert first.locator('#output').input_value()==unchanged_body
+    # Old databases that never registered the office row receive an actionable error, not a wrong-row edit.
+    first.select_option('#extra-edit-item','6');first.locator('#extra-edit-log').fill('* 수정된 행정업무')
+    first.locator('#save-extra-content').click()
+    first.wait_for_function("document.querySelector('#extra-edit-status').textContent.includes('add-office-task.sql')")
+    assert first.locator('#extra-edit-log').input_value()=='* 수정된 행정업무'
+    first.locator('#close-extra-editor').click()
+    # Once the office row is registered, it uses the same editor and stable insertion position.
+    catalog['misc'].append(['서무업무','* 분소행정업무처리'])
+    first.locator('#edit-misc').click();first.locator('#extra-content-editor').wait_for(state='visible')
+    first.select_option('#extra-edit-item','6')
+    first.locator('#extra-edit-content').fill('서무 업무')
+    first.locator('#extra-edit-log').fill('* 수정된 분소행정업무처리')
+    first.locator('#save-extra-content').click()
+    first.wait_for_function("document.querySelector('#extra-edit-status').textContent.includes('공통으로 저장')")
+    first.locator('#close-extra-editor').click()
+    assert first.locator('#output').input_value()==unchanged_body
+    second.reload();second.wait_for_function("!document.querySelector('#workspace').disabled")
+    for team in ['갑조','을조','병조']:
+        switch(team)
+        assert second.locator('#inspection-items tr[data-item-id="0"] .item').text_content()=='수정된 여름 점검 "공통"\n추가 사항'
+        assert second.locator('#misc-select-0').inner_text().endswith('검침 관리')
+    second.locator('#inspection-items tr[data-item-id="0"] .item').click()
+    second.locator('#misc-select-0').click()
+    second.locator('#items tr[data-item-id="1"] button').click()
+    assert '수정된 여름 점검 "공통"\n추가 사항' in second.locator('#output').input_value()
+    assert '* 수정된 검침 기록(공통)' in second.locator('#output').input_value()
+    second.locator('#misc-select-6').click()
+    office_body=second.locator('#output').input_value()
+    assert office_body.index('스트레칭 실시') < office_body.index('* 수정된 분소행정업무처리') < office_body.index('* 위험예지훈련 실시')
+    assert json.dumps(team_counts,sort_keys=True)==counts_before
+    second.locator('#edit-inspections').click();second.locator('#extra-content-editor').wait_for(state='visible')
+    assert second.locator('#extra-content-editor').bounding_box()['width']<=390
+    second.locator('#close-extra-editor').click()
     # A server-side save error shows its diagnostic code and keeps the user's input.
     first.locator('#edit-training').click();first.locator('#training-editor').wait_for(state='visible')
     first.select_option('#training-edit-item','1')

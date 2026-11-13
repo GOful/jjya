@@ -67,6 +67,26 @@
   const CATALOG_TTL = 60000;
   let catalogFetchedAt = 0;
   const validTeam = team => { if(!['갑조','을조','병조'].includes(team)) throw new Error('INVALID_TEAM'); };
+  async function saveCatalogEntry(store,read,write,original,next) {
+    const catalog=await store.readCatalog({force:true});
+    const item=read(catalog.data);
+    if(item===undefined)throw new Error('CONTENT_VERSION_CONFLICT');
+    const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+    if(!equal(item,original)&&!equal(item,next))throw new Error('CONTENT_VERSION_CONFLICT');
+    if(!equal(item,next)){
+      const data=JSON.parse(JSON.stringify(catalog.data));write(data,next);
+      try{
+        const version=await db('rpc/save_app_catalog',{method:'POST',body:{p_expected_version:catalog.version,p_data:data}});
+        if(!Number.isInteger(version))throw new Error('INVALID_SAVE_RESPONSE');
+      }catch(error){
+        if(error.status===404)throw new Error('CONTENT_EDIT_MIGRATION_REQUIRED');
+        if(error.message?.includes('VERSION_CONFLICT'))throw new Error('CONTENT_VERSION_CONFLICT');
+        throw error;
+      }
+    }
+    catalogPromise=null;catalogFetchedAt=0;
+    return next;
+  }
   window.SharedStore = {
     get teamsReady() { return teamsReady; },
     enabled,
@@ -132,27 +152,33 @@
     },
     async updateTraining(original,riskText,safetyRules) {
       if(!Number.isInteger(original.id)||!riskText.trim()||!safetyRules.trim())throw new Error('EMPTY_TRAINING_CONTENT');
-      const risk=riskText.trim(),rules=safetyRules.trim();
-      // Use the existing transactional RPC, not text-based URL filters/PATCH permissions.
-      const catalog=await this.readCatalog({force:true});
-      const item=catalog.data.training.find(row=>row[0]===original.id);
-      if(!item)throw new Error('CONTENT_VERSION_CONFLICT');
-      if(item[2]!==original.riskText || item[3]!==original.safetyRules){
-        // A lost response may follow a successful save. Treat an exact retry as success.
-        if(item[2]!==risk || item[3]!==rules)throw new Error('CONTENT_VERSION_CONFLICT');
-      } else if(item[2]!==risk || item[3]!==rules){
-        const data={...catalog.data,training:catalog.data.training.map(row=>row[0]===original.id?[row[0],row[1],risk,rules]:row)};
-        try{
-          const version=await db('rpc/save_app_catalog',{method:'POST',body:{p_expected_version:catalog.version,p_data:data}});
-          if(!Number.isInteger(version))throw new Error('INVALID_SAVE_RESPONSE');
-        }catch(error){
-          if(error.status===404)throw new Error('CONTENT_EDIT_MIGRATION_REQUIRED');
-          if(error.message?.includes('VERSION_CONFLICT'))throw new Error('CONTENT_VERSION_CONFLICT');
-          throw error;
-        }
-      }
-      catalogPromise=null;catalogFetchedAt=0;
-      return {id:item[0],categories:item[1].split(','),risk_text:risk,safety_rules:rules};
+      const next=[riskText.trim(),safetyRules.trim()];
+      await saveCatalogEntry(this,
+        data=>{const item=data.training.find(row=>row[0]===original.id);return item?.slice(2);},
+        (data,value)=>{const item=data.training.find(row=>row[0]===original.id);item[2]=value[0];item[3]=value[1];},
+        [original.riskText,original.safetyRules],next);
+      return {id:original.id,risk_text:next[0],safety_rules:next[1]};
+    },
+    async updateInspection(original,content) {
+      if(!Number.isInteger(original.typeIndex)||original.typeIndex<0||!Number.isInteger(original.itemIndex)||original.itemIndex<0||!content.trim())throw new Error('EMPTY_INSPECTION_CONTENT');
+      const next=content.trim();
+      await saveCatalogEntry(this,
+        data=>data.inspections[original.typeIndex]?.[2]?.[original.itemIndex],
+        (data,value)=>{data.inspections[original.typeIndex][2][original.itemIndex]=value;},
+        original.content,next);
+      return {typeIndex:original.typeIndex,itemIndex:original.itemIndex,content:next};
+    },
+    async updateMisc(original,title,logText) {
+      if(!Number.isInteger(original.index)||original.index<0||!title.trim()||!logText.trim())throw new Error('EMPTY_MISC_CONTENT');
+      const next=[title.trim(),logText.trim()];
+      await saveCatalogEntry(this,
+        data=>{
+          if(original.index===6&&data.misc.length===6)throw new Error('OFFICE_TASK_MIGRATION_REQUIRED');
+          return data.misc[original.index];
+        },
+        (data,value)=>{data.misc[original.index]=value;},
+        [original.title,original.logText],next);
+      return {index:original.index,title:next[0],logText:next[1]};
     },
     async adjustCount(team,key,delta,requestId) {
       validTeam(team);
