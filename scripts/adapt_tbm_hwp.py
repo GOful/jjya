@@ -4,6 +4,7 @@ Usage: hwp5proc xml sample.hwp > /tmp/sample.xml
 Requires pyhwp for the first command and lxml for this script.
 """
 from pathlib import Path
+from copy import deepcopy
 from zipfile import ZipFile, ZIP_STORED
 from lxml import etree as E
 import sys, runpy
@@ -34,6 +35,21 @@ for i,src in enumerate(source.findall('.//BorderFill')):
         brush=E.SubElement(node,'{%s}fillBrush'%HC)
         E.SubElement(brush,'{%s}winBrush'%HC,faceColor=fill.get('background-color'),hatchColor=fill.get('pattern-color'),alpha='0')
 fills.set('itemCnt',str(len(fills)))
+# Dedicated paragraph styles for generated body text. The original HWP uses
+# 150% line spacing in the work-plan cell and 160% in the two risk cells.
+para_properties=header.find('.//{%s}paraProperties'%HH)
+for node in list(para_properties):
+    if node.get('id') in ['33','34']:para_properties.remove(node)
+for style_id,source_id,spacing in [('33','22','150'),('34','1','160')]:
+    style=deepcopy(header.xpath('//*[local-name()="paraPr"][@id="%s"]'%source_id)[0])
+    style.set('id',style_id)
+    style.xpath('./*[local-name()="align"]')[0].set('horizontal','LEFT')
+    for line_spacing in style.xpath('.//*[local-name()="lineSpacing"]'):
+        line_spacing.set('type','PERCENT');line_spacing.set('value',spacing)
+    for margin in style.xpath('.//*[local-name()="margin"]/*'):
+        margin.set('value','0')
+    para_properties.append(style)
+para_properties.set('itemCnt',str(len(para_properties)))
 for cell,src in zip(cells,incoming):
     for tag,mapping in [('cellAddr',{'colAddr':'col','rowAddr':'row'}),('cellSpan',{'colSpan':'colspan','rowSpan':'rowspan'}),('cellSz',{'width':'width','height':'height'}),('cellMargin',{x:'padding-'+x for x in ['left','right','top','bottom']})]:
         node=cell.find('{%s}%s'%(HP,tag))

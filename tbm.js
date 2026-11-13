@@ -34,7 +34,7 @@
   put(6,`<div class="document-work-title">(<select id="tbm-shift" aria-label="근무"><option>야간</option><option>주간</option></select>) <select id="tbm-work-preset" aria-label="작업 종류"><option>변전설비 일상점검</option><option>MCC설비 점검</option><option>수전선로 점검</option><option>직접 입력</option></select><input id="tbm-work-title" aria-label="작업명" value="변전설비 일상점검" required maxlength="60" hidden><span id="tbm-plan-people"></span></div>
   <div class="document-choices"><span>작업자:</span><details id="tbm-worker-picker"><summary id="tbm-worker-summary">김대일, 김승오, 김범석</summary><div class="document-choice-menu"><label><input type="checkbox" name="tbm-worker" value="김대일" checked> 김대일</label><label><input type="checkbox" name="tbm-worker" value="김승오" checked> 김승오</label><label><input type="checkbox" name="tbm-worker" value="김범석" checked> 김범석</label></div></details></div>
   <div class="document-line">- 작업일시: <input id="tbm-start" class="document-clock" aria-label="작업 시작" value="09:30" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" required> ~ <input id="tbm-end" class="document-clock" aria-label="작업 종료" value="18:00" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" required></div>
-  <div class="document-choices"><span>- 작업구간:</span><details id="tbm-area-picker"><summary id="tbm-area-summary">대구은행 변전소</summary><div class="document-choice-menu document-area-menu">${['문양기지','성서산단','반고개','만촌','사월','대실','죽전','대구은행','수성알파시티','영남대'].map(area=>`<label><input type="checkbox" name="tbm-area" value="${area}"${area==='대구은행'?' checked':''}> ${area}</label>`).join('')}</div></details></div>
+  <div class="document-choices"><span>- 작업구간:</span><details id="tbm-area-picker"><summary id="tbm-area-summary">대구은행 변전소</summary><div class="document-choice-menu document-area-menu"><div class="document-area-row"><b>A</b>${['문양기지','성서산단','반고개','만촌','사월'].map(area=>`<label><input type="checkbox" name="tbm-area" value="${area}"> ${area}</label>`).join('')}</div><div class="document-area-row"><b>B</b>${['대실','죽전','대구은행','수성알파시티','영남대'].map(area=>`<label><input type="checkbox" name="tbm-area" value="${area}"${area==='대구은행'?' checked':''}> ${area}</label>`).join('')}</div></div></details></div>
   <label class="document-line">- 작업순서: <input id="tbm-order" aria-label="작업순서" value="AC반 → DC반 → 기타(RTU 및 충전기반)" required maxlength="120"></label>
   <div class="document-methods"><span>- 작업방법:</span><div>
   <label><input type="checkbox" name="tbm-method" value="배전반내 각종 케이블 외관 상태 점검" checked> 배전반내 각종 케이블 외관 상태 점검</label>
@@ -53,7 +53,7 @@
     put([18,21,24][i],'');
   });
   put(31,'<span id="tbm-leader"></span>');
-  put(30,'<input id="tbm-railway-manager" aria-label="철도운행 안전관리자" placeholder="성명" maxlength="20" autocomplete="off">');
+  put(30,'');
   for(let i=0;i<4;i++){
     put(35+i,`<span id="tbm-attendee-${i}"></span>`);
     put(45+i,'<span class="document-manual">□ 적합　□ 부적합</span>');
@@ -77,8 +77,8 @@
     $('tbm-worker-summary').textContent=workers.join(', ')||'작업자 선택';
     $('tbm-leader').textContent=leader;
     for(let i=0;i<4;i++)$(`tbm-attendee-${i}`).textContent=attendees[i]||'';
-    const areas=chosen('tbm-area').map(area=>`${area} 변전소`);
-    $('tbm-area-summary').textContent=areas.join(', ')||'작업구간 선택';
+    const areas=chosen('tbm-area');
+    $('tbm-area-summary').textContent=areas.length?`${areas.join(', ')} 변전소`:'작업구간 선택';
   }
   function values(){
     const date=text('tbm-date'),parsed=date?new Date(`${date}T12:00:00+09:00`):null;
@@ -87,15 +87,17 @@
     while(people.length<4)people.push({name:'',fitness:'미확인'});
     const names=workers.join(', '),risks=fixedRisks;
     const methods=[...document.querySelectorAll('input[name="tbm-method"]:checked')].map(input=>input.value).concat(text('tbm-extra-methods').split('\n').map(line=>line.trim()).filter(Boolean));
-    const area=chosen('tbm-area').map(name=>`${name} 변전소`).join(', ');
+    const areas=chosen('tbm-area'),area=areas.length?`${areas.join(', ')} 변전소`:'';
     const planLines=[`(${text('tbm-shift')}) ${text('tbm-work-title')}${names?`(${names})`:''}`,
       `  - 작업일시: ${text('tbm-start')} ~ ${text('tbm-end')}`,
       `  - 작업구간: ${area}`,
       `  - 작업순서: ${text('tbm-order')}`,
-      `  - 작업방법: ${methods.map(line=>'ㅇ '+line).join('\n')}`,
+      ...methods.map((line,index)=>`${index?'               ':'  - 작업방법:  '}ㅇ ${line}`),
       '  - 작업원별 임무 및 작업장 이동방법: 육안 점검 실시, 열차를 통한 이동',
-      `  - 위험요인 안전조치 및 교육:\n${risks.map(item=>`ㅇ ${item.risk}\n   - ${item.rules}`).join('\n')}\nㅇ 소화설비 교육`];
-    const data={department:'대구은행 변전분소',educationDate,date,location:text('tbm-location'),shift:text('tbm-shift'),leader,railwayManager:text('tbm-railway-manager'),attendees:people,risks,riskRules:['전기안전수칙 준수, 전력계통 숙지','전방주시 철저, 안전모, 안전화 착용','전력계통 숙지'],methods,planLines,checks:checks.map(label=>({label,result:'미확인',action:''}))};
+      '  - 위험요인 안전조치 및 교육:',
+      ...risks.map(item=>`               ㅇ ${item.risk}\n - ${item.rules}`),
+      '               ㅇ 소화설비 교육'];
+    const data={department:'대구은행 변전분소',educationDate,date,location:text('tbm-location'),shift:text('tbm-shift'),leader,railwayManager:'',attendees:people,risks,riskRules:['전기안전수칙 준수, 전력계통 숙지','전방주시 철저, 안전모, 안전화 착용','전력계통 숙지'],methods,planLines,checks:checks.map(label=>({label,result:'미확인',action:''}))};
     data.previewText=['작업 전 안전교육(TBM) 일지',`소속: ${data.department}`,`교육일시: ${educationDate}`,`교육장소: ${data.location}`,'[작업 계획]',...planLines,'[위험성평가 결과]',...risks.map(item=>`${item.risk}\n안전대책: ${item.rules}`),'[확인사항]',...data.checks.map(check=>`${check.label}: ${check.result}${check.action?' / '+check.action:''}`),`작업책임자: ${leader}`,`철도운행 안전관리자: ${data.railwayManager}`,'[교육참석자]',...people.filter(person=>person.name).map(person=>`${person.name}: ${person.fitness}`)].join('\r\n');
     return data;
   }

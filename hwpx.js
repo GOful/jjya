@@ -47,19 +47,20 @@
   function fill(template,values){
     const files=readZip(template),xml=parseXml(files.get('Contents/section0.xml'));
     const cells=[...xml.getElementsByTagNameNS(HP,'tc')];if(cells.length!==49)throw new Error('양식의 표 구조가 변경되었습니다.');
-    function paragraphs(index,lines,charId){
+    function paragraphs(index,lines,charId,paraId){
       const sub=children(cells[index],'subList')[0],original=children(sub,'p');
       const next=lines.map((line,i)=>{
         const base=original[Math.min(i,original.length-1)].cloneNode(true);
         children(base,'linesegarray').forEach(node=>node.remove());
+        if(paraId!==undefined)base.setAttribute('paraPrIDRef',String(paraId));
         const source=children(base,'run').find(run=>run.getAttribute('charPrIDRef')==='15')||children(base,'run')[0];
         const run=source.cloneNode(false);if(charId!==undefined)run.setAttribute('charPrIDRef',String(charId));setText(xml,run,line);base.replaceChildren(run);return base;
       });sub.replaceChildren(...next);
     }
     paragraphs(0,[`□ 소    속 : ${values.department}`,`□ 교육일시 : ${values.educationDate}`,`□ 교육장소 : ${values.location}`],9);
-    paragraphs(6,values.planLines,15);
-    paragraphs(10,values.risks.map((risk,i)=>`${['①','②'][i]} ${risk.risk}`).concat('※ 전체 유해‧위험요인은 위험성평가표 참고'),17);
-    paragraphs(11,values.riskRules.map((rule,i)=>`${['①','②','③'][i]} ${rule}`),17);
+    paragraphs(6,values.planLines,15,33);
+    paragraphs(10,values.risks.map((risk,i)=>`${['①','②'][i]} ${risk.risk}`).concat('※ 전체 유해‧위험요인은 위험성평가표 참고'),17,34);
+    paragraphs(11,values.riskRules.map((rule,i)=>`${['①','②','③'][i]} ${rule}`),17,34);
     const checkbox=value=>value==='적합'?'☑ 적합　□ 부적합':value==='부적합'?'□ 적합　☑ 부적합':'□ 적합　□ 부적합';
     values.checks.forEach((check,i)=>{paragraphs([17,20,23][i],[checkbox(check.result)],20);paragraphs([18,21,24][i],[check.action],20);});
     paragraphs(31,[values.leader],25);paragraphs(30,[values.railwayManager],25);

@@ -39,8 +39,8 @@ with sync_playwright() as p:
     page.locator('#tbm-area-picker summary').click()
     page.locator('input[name="tbm-area"][value="죽전"]').check()
     page.locator('#tbm-area-picker summary').click()
-    page.locator('#tbm-railway-manager').fill('시험관리자')
-    assert page.locator('#tbm-area-summary').inner_text()=='죽전 변전소, 대구은행 변전소'
+    assert page.locator('#tbm-railway-manager').count()==0
+    assert page.locator('#tbm-area-summary').inner_text()=='죽전, 대구은행 변전소'
     assert '원방 및 수동 오조작에 의한 급전' in page.locator('#tbm-plan-risk-summary').inner_text()
     assert '소화설비 교육' in page.locator('#tbm-plan-risk-summary').inner_text()
     assert page.locator('[data-result-target]').count()==0
@@ -73,12 +73,12 @@ with sync_playwright() as p:
         text=lambda i:''.join(cells[i].itertext())
         assert '2026. 11. 14. (토) 18:10 ~ 18:30' in text(0)
         assert '※ 전체 유해‧위험요인은 위험성평가표 참고' in text(10)
-        assert '죽전 변전소, 대구은행 변전소' in text(6)
+        assert '죽전, 대구은행 변전소' in text(6)
         assert '김승오' in text(6) and '김범석' in text(6) and '김대일' not in text(6)
         assert '소화설비 교육' in text(6)
         assert '③ 전력계통 숙지' in text(11)
         assert all('☑' not in text(i) and '□ 적합' in text(i) for i in [17,20,23,45,46,47,48])
-        assert text(31)=='김승오' and text(30)=='시험관리자'
+        assert text(31)=='김승오' and not text(30).strip()
         assert text(35)=='김범석' and '□ 적합' in text(45)
         for i in [3,32,40,41,42,43]:assert not text(i).strip(),f'Signature unexpectedly filled: {i}'
         metadata=E.fromstring(z.read('Contents/content.hpf'))
@@ -89,6 +89,25 @@ with sync_playwright() as p:
             for old,new in zip(before.findall('.//{%s}tc'%HP),cells):
                 for local in ['cellAddr','cellSpan','cellSz','cellMargin']:
                     assert old.find('{%s}%s'%(HP,local)).attrib==new.find('{%s}%s'%(HP,local)).attrib
+        # Paragraph count, alignment and vertical placement follow the supplied HWP.
+        assert len(cells[6].findall('.//{%s}p'%HP))==12
+        assert len(cells[6].findall('.//{%s}lineBreak'%HP))==2
+        assert all(''.join(p.itertext()).strip() for p in cells[6].findall('.//{%s}p'%HP))
+        assert len(cells[10].findall('.//{%s}p'%HP))==3
+        assert len(cells[11].findall('.//{%s}p'%HP))==3
+        assert cells[6].find('{%s}subList'%HP).get('vertAlign')=='MIDDLE'
+        assert cells[10].find('{%s}subList'%HP).get('vertAlign')=='TOP'
+        assert all(p.get('paraPrIDRef')=='33' for p in cells[6].findall('.//{%s}p'%HP))
+        assert all(p.get('paraPrIDRef')=='34' for i in [10,11] for p in cells[i].findall('.//{%s}p'%HP))
+        header=E.fromstring(z.read('Contents/header.xml'))
+        for style_id,spacing in [('33','150'),('34','160')]:
+            style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%style_id)[0]
+            assert style.xpath('./*[local-name()="align"]')[0].get('horizontal')=='LEFT'
+            assert all(node.get('value')==spacing for node in style.xpath('.//*[local-name()="lineSpacing"]'))
+        for cell_index in [17,20,23,30,31,35,36,37,38,45,46,47,48]:
+            paragraph=cells[cell_index].find('.//{%s}p'%HP)
+            style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%paragraph.get('paraPrIDRef'))[0]
+            assert style.xpath('./*[local-name()="align"]')[0].get('horizontal')=='CENTER'
         assert '김범석' in z.read('Preview/PrvText.txt').decode()
     # Corruption is rejected instead of producing a damaged download.
     assert page.evaluate('''async()=>{const b=await (await fetch('assets/tbm-template.hwpx')).arrayBuffer();new Uint8Array(b)[38]^=1;try{HwpxBuilder.readZip(b);return false;}catch(_){return true;}}''')
