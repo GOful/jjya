@@ -29,7 +29,7 @@
     let result; try { result = text ? JSON.parse(text) : null; } catch (_) { result = null; }
     if (!response.ok) {
       const error = new Error(result?.message || result?.msg || result?.error_description || '서버 요청에 실패했습니다.');
-      error.status = response.status; throw error;
+      error.status = response.status; error.code = result?.code || null; throw error;
     }
     return result;
   }
@@ -132,15 +132,27 @@
     },
     async updateTraining(original,riskText,safetyRules) {
       if(!Number.isInteger(original.id)||!riskText.trim()||!safetyRules.trim())throw new Error('EMPTY_TRAINING_CONTENT');
-      // Match the previously read content to avoid silently overwriting another editor.
-      const quoted=value=>'eq."'+value.replaceAll('\\','\\\\').replaceAll('"','\\"')+'"';
-      const query=new URLSearchParams({id:`eq.${original.id}`,risk_text:quoted(original.riskText),safety_rules:quoted(original.safetyRules)});
-      let rows;
-      try{rows=await db(`risk_trainings?${query}`,{method:'PATCH',prefer:'return=representation',body:{risk_text:riskText.trim(),safety_rules:safetyRules.trim()}});}
-      catch(error){if(error.status===404)throw new Error('CONTENT_EDIT_MIGRATION_REQUIRED');throw error;}
-      if(!Array.isArray(rows)||rows.length!==1)throw new Error('CONTENT_VERSION_CONFLICT');
+      const risk=riskText.trim(),rules=safetyRules.trim();
+      // Use the existing transactional RPC, not text-based URL filters/PATCH permissions.
+      const catalog=await this.readCatalog({force:true});
+      const item=catalog.data.training.find(row=>row[0]===original.id);
+      if(!item)throw new Error('CONTENT_VERSION_CONFLICT');
+      if(item[2]!==original.riskText || item[3]!==original.safetyRules){
+        // A lost response may follow a successful save. Treat an exact retry as success.
+        if(item[2]!==risk || item[3]!==rules)throw new Error('CONTENT_VERSION_CONFLICT');
+      } else if(item[2]!==risk || item[3]!==rules){
+        const data={...catalog.data,training:catalog.data.training.map(row=>row[0]===original.id?[row[0],row[1],risk,rules]:row)};
+        try{
+          const version=await db('rpc/save_app_catalog',{method:'POST',body:{p_expected_version:catalog.version,p_data:data}});
+          if(!Number.isInteger(version))throw new Error('INVALID_SAVE_RESPONSE');
+        }catch(error){
+          if(error.status===404)throw new Error('CONTENT_EDIT_MIGRATION_REQUIRED');
+          if(error.message?.includes('VERSION_CONFLICT'))throw new Error('CONTENT_VERSION_CONFLICT');
+          throw error;
+        }
+      }
       catalogPromise=null;catalogFetchedAt=0;
-      return rows[0];
+      return {id:item[0],categories:item[1].split(','),risk_text:risk,safety_rules:rules};
     },
     async adjustCount(team,key,delta,requestId) {
       validTeam(team);

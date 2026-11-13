@@ -426,14 +426,17 @@ function cloudMessage(message) { cloudStatus.textContent = message; }
 function formatTime(value) { return new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}); }
 function setLastCopied(value) { document.querySelector('#last-copied').textContent = value ? `최근 복사 · ${formatTime(value)}` : ''; }
 function friendlyError(error, fallback = '요청을 완료하지 못했습니다.') {
-  if (error.message?.includes('CONTENT_EDIT_MIGRATION_REQUIRED')) return '점검 내용 테이블 전환 SQL을 먼저 실행해 주세요.';
+  if (error.message?.includes('CONTENT_EDIT_MIGRATION_REQUIRED')) return '내용 수정 저장 함수가 없습니다. DB 설정 SQL 적용 상태를 확인해 주세요.';
   if (error.message?.includes('CONTENT_VERSION_CONFLICT')) return '다른 사람이 이 항목을 먼저 수정했습니다. 입력 내용을 따로 복사한 후 창을 닫고 다시 열어주세요.';
   if (error.message?.includes('COUNT_EDIT_MIGRATION_REQUIRED')) return '횟수 수정 설정 SQL을 먼저 실행해 주세요.';
   if (error.message?.includes('TEAM_MIGRATION_REQUIRED')) return '조별 집계 설정 SQL을 먼저 실행해 주세요.';
   if (error.message?.includes('VERSION_CONFLICT')) return '다른 사람이 먼저 수정했습니다. 현재 내용을 따로 복사해 둔 뒤 새로고침하세요.';
   if (error.message?.includes('ANONYMOUS_AUTH_REQUIRED')) return '공유 연결을 다시 시도하세요.';
+  if(error.code==='42501')return 'DB 저장 권한을 확인해 주세요. (42501)';
   if ([401,403].includes(error.status)) return '익명 접속 설정을 확인하고 새로고침하세요.';
-  return fallback + ' 연결 설정를 확인하고 다시 시도하세요.';
+  if(error.code)return `${fallback} (DB 오류: ${error.code})`;
+  if(error.status)return `${fallback} (HTTP ${error.status})`;
+  return fallback + ' 네트워크 연결을 확인하고 다시 시도하세요.';
 }
 function captureState() {
   return {schemaVersion:1,team:activeTeam,category:category.value,inspectionCategory:inspectionCategory.value,

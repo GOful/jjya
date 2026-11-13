@@ -4,8 +4,6 @@ Run: python tests/browser_shared.py (requires playwright and Chromium).
 import json
 import threading
 import uuid
-import re
-from urllib.parse import urlparse, parse_qs
 from functools import partial
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
@@ -53,21 +51,6 @@ def respond(route):
         result=dict(id=copy['log_id'],version=copy['log_version'],body=copy['body'],state=copy['state'],updated_at=copy['copied_at'],team=body['p_team']) if copy else None
     elif path.startswith('/rest/v1/rpc/shared_usage_counts'):
         result = counts
-    elif path.startswith('/rest/v1/risk_trainings?'):
-        assert request.method=='PATCH'
-        assert request.headers.get('prefer')=='return=representation'
-        query=parse_qs(urlparse(request.url).query)
-        identifier=int(query['id'][0].removeprefix('eq.'))
-        def unquote_filter(value):
-            assert value.startswith('eq.\"') and value.endswith('\"')
-            return re.sub(r'\\(.)',r'\1',value[4:-1])
-        item=next(item for item in catalog['training'] if item[0]==identifier)
-        assert set(body)=={'risk_text','safety_rules'}
-        if item[2]!=unquote_filter(query['risk_text'][0]) or item[3]!=unquote_filter(query['safety_rules'][0]):
-            result=[]
-        else:
-            item[2]=body['risk_text'];item[3]=body['safety_rules'];catalog_version+=1
-            result=[{'id':identifier,'categories':item[1].split(','),'risk_text':item[2],'safety_rules':item[3]}]
     elif path.startswith('/rest/v1/work_logs'):
         if '&id=eq.' in path:
             result = [logs[path.split('&id=eq.')[1]]]
@@ -275,6 +258,16 @@ with sync_playwright() as p:
     second.locator('#edit-training').click();second.locator('#training-editor').wait_for(state='visible')
     assert second.locator('#training-editor').bounding_box()['width']<=390
     second.locator('#close-training-editor').click()
+    # A server-side save error shows its diagnostic code and keeps the user's input.
+    first.locator('#edit-training').click();first.locator('#training-editor').wait_for(state='visible')
+    first.select_option('#training-edit-item','1')
+    first.locator('#training-edit-risk').fill('실패해도 보존할 입력')
+    first.route('**/rest/v1/rpc/save_app_catalog',lambda route:route.fulfill(status=403,content_type='application/json',body=json.dumps({'code':'42501','message':'permission denied'})))
+    first.locator('#save-training').click()
+    first.wait_for_function("document.querySelector('#training-edit-status').textContent.includes('42501')")
+    assert first.locator('#training-edit-risk').input_value()=='실패해도 보존할 입력'
+    assert catalog['training'][0][2]=='공통 최종 위험항목'
+    first.locator('#close-training-editor').click()
     # Keep v1 database compatibility until the owner applies migration SQL.
     def legacy_api(route):
         path=route.request.url.split('.supabase.co',1)[1]
