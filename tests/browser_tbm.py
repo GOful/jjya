@@ -89,14 +89,14 @@ with sync_playwright() as p:
             for old,new in zip(before.findall('.//{%s}tc'%HP),cells):
                 for local in ['cellAddr','cellSpan','cellSz','cellMargin']:
                     assert old.find('{%s}%s'%(HP,local)).attrib==new.find('{%s}%s'%(HP,local)).attrib
-        # Paragraph count, alignment and vertical placement follow the supplied HWP.
+        # Paragraph count and alignment follow the supplied HWP; every cell is
+        # vertically centered for the downloadable form.
         assert len(cells[6].findall('.//{%s}p'%HP))==12
         assert len(cells[6].findall('.//{%s}lineBreak'%HP))==2
         assert all(''.join(p.itertext()).strip() for p in cells[6].findall('.//{%s}p'%HP))
         assert len(cells[10].findall('.//{%s}p'%HP))==3
         assert len(cells[11].findall('.//{%s}p'%HP))==3
-        assert cells[6].find('{%s}subList'%HP).get('vertAlign')=='MIDDLE'
-        assert cells[10].find('{%s}subList'%HP).get('vertAlign')=='TOP'
+        assert all(cell.find('{%s}subList'%HP).get('vertAlign')=='MIDDLE' for cell in cells)
         assert all(p.get('paraPrIDRef')=='33' for p in cells[6].findall('.//{%s}p'%HP))
         assert all(p.get('paraPrIDRef')=='34' for i in [10,11] for p in cells[i].findall('.//{%s}p'%HP))
         header=E.fromstring(z.read('Contents/header.xml'))

@@ -47,6 +47,8 @@
   function fill(template,values){
     const files=readZip(template),xml=parseXml(files.get('Contents/section0.xml'));
     const cells=[...xml.getElementsByTagNameNS(HP,'tc')];if(cells.length!==49)throw new Error('양식의 표 구조가 변경되었습니다.');
+    // Keep every table cell vertically centered in downloaded documents.
+    cells.forEach(cell=>children(cell,'subList')[0]?.setAttribute('vertAlign','MIDDLE'));
     function paragraphs(index,lines,charId,paraId){
       const sub=children(cells[index],'subList')[0],original=children(sub,'p');
       const next=lines.map((line,i)=>{
