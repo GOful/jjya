@@ -13,7 +13,7 @@
     if (role !== 'anon') throw new Error('Publishable key 또는 anon public key만 사용할 수 있습니다.');
   }
   const storageKey = `jjya.auth:${base}`;
-  let session = null, refreshing = null;
+  let session = null, refreshing = null, reauthorizing = null;
   try { session = JSON.parse(sessionStorage.getItem(storageKey) || 'null'); } catch (_) { /* Memory-only session. */ }
   function keep(value) {
     session = value;
@@ -43,42 +43,69 @@
     }
     return session.access_token;
   }
-  async function db(path, options = {}) { return request('/rest/v1/' + path, {...options, token:await token()}); }
-  let teamsReady = false;
+  async function anonymousSession() {
+    const value=await request('/auth/v1/signup',{method:'POST',body:{data:{}}});
+    if(!value.access_token)throw new Error('익명 로그인을 활성화하세요.');
+    keep({...value,expires_at:Date.now()/1000+value.expires_in});
+    return value.user;
+  }
+  async function db(path, options = {}) {
+    const access=await token();
+    try{return await request('/rest/v1/'+path,{...options,token:access});}
+    catch(error){
+      if(error.status!==401)throw error;
+      // Expired/revoked cached sessions recover once, without an extra check on every visit.
+      if(session?.access_token===access){
+        if(!reauthorizing)reauthorizing=anonymousSession().finally(()=>{reauthorizing=null;});
+        await reauthorizing;
+      }
+      return request('/rest/v1/'+path,{...options,token:await token()});
+    }
+  }
+  let teamsReady = false, catalogPromise = null;
+  const CATALOG_TTL = 60000;
+  let catalogFetchedAt = 0;
   const validTeam = team => { if(!['갑조','을조','병조'].includes(team)) throw new Error('INVALID_TEAM'); };
   window.SharedStore = {
     get teamsReady() { return teamsReady; },
     enabled,
     async start() {
       if (session) {
-        try { return await this.user(); } catch (_) { keep(null); }
+        // Reuse a valid session; the data API still verifies every access token.
+        try { await token(); if(session?.user?.id) return session.user; } catch (_) { keep(null); }
       }
-      const value = await request('/auth/v1/signup', {method:'POST', body:{data:{}}});
-      if (!value.access_token) throw new Error('익명 로그인을 활성화하세요.');
-      keep({...value, expires_at:Date.now()/1000 + value.expires_in});
-      return value.user;
+      return anonymousSession();
     },
     async user() { if (!session) return null; return request('/auth/v1/user', {token:await token()}); },
     async snapshot(team = '갑조') {
-      const [catalog, counts] = await Promise.all([
+      const [catalog, counts, copied] = await Promise.all([
         this.readCatalog(),
-        this.counts(team)
+        this.counts(team),
+        this.latestCopy(team)
       ]);
-      return {catalog,counts};
+      return {catalog,counts,copied};
     },
     async readCatalog() {
-      try { return await db('rpc/get_app_catalog',{method:'POST',body:{}}); }
-      catch(error) {
-        // Keep the existing site usable while the owner runs the migration SQL.
-        if(error.status !== 404) throw error;
-        const rows = await db('app_catalog?select=data,version&id=eq.true');
-        if(!rows.length) throw new Error('점검 데이터 초기화를 확인하세요.');
-        return rows[0];
-      }
+      // Team contents are common. Share one in-flight request and cache it briefly.
+      // Counts and the last copied log are never cached.
+      if(catalogPromise && Date.now()-catalogFetchedAt<CATALOG_TTL)return catalogPromise;
+      catalogFetchedAt=Date.now();
+      catalogPromise=(async()=>{
+        try { return await db('rpc/get_app_catalog',{method:'POST',body:{}}); }
+        catch(error) {
+          if(error.status !== 404) throw error;
+          const rows = await db('app_catalog?select=data,version&id=eq.true');
+          if(!rows.length) throw new Error('점검 데이터 초기화를 확인하세요.');
+          return rows[0];
+        }
+      })();
+      try{return await catalogPromise;}catch(error){catalogPromise=null;throw error;}
     },
     async latestCopy(team = '갑조') {
       validTeam(team);
-      if(teamsReady) return db('rpc/latest_team_copy',{method:'POST',body:{p_team:team}});
+      // This request is independent of the counts/catalog requests, so it can start immediately.
+      try { return await db('rpc/latest_team_copy',{method:'POST',body:{p_team:team}}); }
+      catch(error) { if(error.status!==404)throw error; }
       if(team!=='갑조') throw new Error('TEAM_MIGRATION_REQUIRED');
       try {
         const rows=await db('work_log_copies?select=log_id,log_version,body,state,copied_at&order=copied_at.desc,id.desc&limit=1');

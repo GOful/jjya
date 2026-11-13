@@ -215,7 +215,7 @@ with sync_playwright() as p:
     # Keep v1 database compatibility until the owner applies migration SQL.
     def legacy_api(route):
         path=route.request.url.split('.supabase.co',1)[1]
-        if '/rpc/get_app_catalog' in path or '/work_log_copies?' in path or '/rpc/team_usage_counts' in path:
+        if '/rpc/get_app_catalog' in path or '/work_log_copies?' in path or '/rpc/team_usage_counts' in path or '/rpc/latest_team_copy' in path:
             route.fulfill(status=404,content_type='application/json',body='{}')
         elif '/copy_events?' in path:
             route.fulfill(content_type='application/json',body=json.dumps([{'log_id':next(copy for copy in reversed(copy_snapshots) if copy.get('team','갑조')=='갑조')['log_id'],'copied_at':'2026-11-01T04:00:00Z'}]))

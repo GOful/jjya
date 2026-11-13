@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://psmrqlxfpevknjbiiafy.supabase.co" crossorigin>
 <title>일일업무일지 생성기</title>
 <style>
 :root{font-family:system-ui,-apple-system,"맑은 고딕",sans-serif;color:#213649;background:#f4f6f8;font-synthesis:none}
@@ -486,7 +487,7 @@ function resetTeamSelection() {
 }
 async function loadTeam(team) {
   const snapshot=await shared.snapshot(team);
-  const copied=await shared.latestCopy(team);
+  const copied=snapshot.copied;
   applyCatalog(snapshot.catalog.data);
   activeTeam=team;counts=snapshot.counts;countEditOrders.clear();resetTeamSelection();
   const draft=teamDrafts.get(team);
