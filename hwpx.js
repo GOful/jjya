@@ -59,7 +59,7 @@
     paragraphs(0,[`□ 소    속 : ${values.department}`,`□ 교육일시 : ${values.educationDate}`,`□ 교육장소 : ${values.location}`],9);
     paragraphs(6,values.planLines,15);
     paragraphs(10,values.risks.map((risk,i)=>`${['①','②'][i]} ${risk.risk}`).concat('※ 전체 유해‧위험요인은 위험성평가표 참고'),17);
-    paragraphs(11,values.risks.map((risk,i)=>`${['①','②'][i]} ${risk.rules}`),17);
+    paragraphs(11,values.riskRules.map((rule,i)=>`${['①','②','③'][i]} ${rule}`),17);
     const checkbox=value=>value==='적합'?'☑ 적합　□ 부적합':value==='부적합'?'□ 적합　☑ 부적합':'□ 적합　□ 부적합';
     values.checks.forEach((check,i)=>{paragraphs([17,20,23][i],[checkbox(check.result)],20);paragraphs([18,21,24][i],[check.action],20);});
     paragraphs(31,[values.leader],25);paragraphs(30,[values.railwayManager],25);

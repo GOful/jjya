@@ -19,25 +19,32 @@ with sync_playwright() as p:
     page.goto(f'http://127.0.0.1:{server.server_port}/index.html')
     page.locator('#generator-tab-tbm').click()
     assert page.locator('#tbm-generator').is_visible() and not page.locator('#daily-generator').is_visible()
+    # Date and day/night presets are set when the page opens; users can still switch shifts.
+    assert page.locator('#tbm-date').input_value()
+    page.select_option('#tbm-shift','야간')
+    assert page.locator('#tbm-education-start').input_value()=='18:10'
+    assert page.locator('#tbm-education-end').input_value()=='18:30'
+    assert page.locator('#tbm-start').input_value()=='18:30'
+    assert page.locator('#tbm-end').input_value()=='00:20'
     page.locator('#tbm-date').fill('2026-11-14')
-    page.locator('#tbm-area').fill('시험 변전소 <A&B>')
-    page.locator('#tbm-leader').fill('테스트교관')
+    assert page.locator('#tbm-cell-0').get_by_text('대구은행 변전분소').is_visible()
+    assert page.locator('#tbm-leader').inner_text()=='김대일'
+    assert page.locator('#tbm-attendee-0').inner_text()=='김승오'
+    assert page.locator('#tbm-attendee-1').inner_text()=='김범석'
+    page.locator('#tbm-worker-picker summary').click()
+    page.locator('input[name="tbm-worker"][value="김대일"]').uncheck()
+    page.locator('#tbm-worker-picker summary').click()
+    assert page.locator('#tbm-leader').inner_text()=='김승오'
+    assert page.locator('#tbm-attendee-0').inner_text()=='김범석'
+    page.locator('#tbm-area-picker summary').click()
+    page.locator('input[name="tbm-area"][value="죽전"]').check()
+    page.locator('#tbm-area-picker summary').click()
     page.locator('#tbm-railway-manager').fill('시험관리자')
-    page.locator('#tbm-attendee-0').fill('시험참석자')
-    page.locator('[data-result-target="tbm-fitness-0"][value="적합"]').check()
-    page.locator('[data-result-target="tbm-check-0"][value="적합"]').check()
-    page.locator('[data-result-target="tbm-check-1"][value="부적합"]').check()
-    page.locator('#tbm-action-1').fill('조치 <완료> & 확인')
-    page.locator('#tbm-risk-picker summary').click()
-    page.locator('[data-risk-id="8"][type=checkbox]').check()
-    page.locator('[data-risk-id="9"][type=checkbox]').check()
-    page.locator('[data-risk-id="1"][type=checkbox]').click()
-    assert page.locator('#tbm-risk-list input:checked').count()==2
-    page.locator('#tbm-risk-picker summary').click()
-    page.locator('textarea[data-risk-id="8"][data-risk-field=rules]').fill('수정 안전대책 <절연> & 보호구')
-    page.select_option('#tbm-extra-education','소화설비 교육')
-    assert page.locator('#tbm-cell-6 #tbm-area').input_value()=='시험 변전소 <A&B>'
-    assert '수정 안전대책 <절연> & 보호구' in page.locator('#tbm-plan-risk-summary').inner_text()
+    assert page.locator('#tbm-area-summary').inner_text()=='죽전 변전소, 대구은행 변전소'
+    assert '원방 및 수동 오조작에 의한 급전' in page.locator('#tbm-plan-risk-summary').inner_text()
+    assert '소화설비 교육' in page.locator('#tbm-plan-risk-summary').inner_text()
+    assert page.locator('[data-result-target]').count()==0
+    assert page.locator('.document-manual').count()==7
     assert page.locator('#tbm-document-table td').count()==49
     assert page.locator('#tbm-cell-5').get_attribute('colspan')=='2'
     assert page.locator('#tbm-cell-8').get_attribute('colspan')=='6'
@@ -45,8 +52,8 @@ with sync_playwright() as p:
     assert page.evaluate("TBM_FORM_LAYOUT.cells.every(cell=>{const el=document.querySelector('#tbm-cell-'+cell.index);return el.rowSpan===cell.rowSpan&&el.colSpan===cell.colSpan;})")
     assert page.locator('#generator-tab-tbm').get_attribute('aria-pressed')=='true'
     assert page.locator('#generator-tab-daily').get_attribute('aria-pressed')=='false'
-    assert page.locator('#tbm-cell-10 textarea').count()==2
-    assert page.locator('#tbm-cell-11 textarea').count()==2
+    assert page.locator('#tbm-cell-10 textarea').count()==0
+    assert page.locator('#tbm-cell-11 textarea').count()==0
     page.select_option('#tbm-zoom','0.7')
     assert abs(page.locator('#tbm-paper').bounding_box()['width']-794*0.7)<2
     page.select_option('#tbm-zoom','1')
@@ -66,15 +73,13 @@ with sync_playwright() as p:
         text=lambda i:''.join(cells[i].itertext())
         assert '2026. 11. 14. (토) 18:10 ~ 18:30' in text(0)
         assert '※ 전체 유해‧위험요인은 위험성평가표 참고' in text(10)
-        assert '시험 변전소 <A&B>' in text(6)
-        assert '테스트교관' in text(6) and '시험참석자' in text(6)
+        assert '죽전 변전소, 대구은행 변전소' in text(6)
+        assert '김승오' in text(6) and '김범석' in text(6) and '김대일' not in text(6)
         assert '소화설비 교육' in text(6)
-        assert '수정 안전대책 <절연> & 보호구' in text(11)
-        assert '☑ 적합' in text(17) and '☑ 부적합' in text(20)
-        assert '조치 <완료> & 확인' in text(21)
-        assert '☑' not in text(23)
-        assert text(31)=='테스트교관' and text(30)=='시험관리자'
-        assert text(35)=='시험참석자' and '☑ 적합' in text(45)
+        assert '③ 전력계통 숙지' in text(11)
+        assert all('☑' not in text(i) and '□ 적합' in text(i) for i in [17,20,23,45,46,47,48])
+        assert text(31)=='김승오' and text(30)=='시험관리자'
+        assert text(35)=='김범석' and '□ 적합' in text(45)
         for i in [3,32,40,41,42,43]:assert not text(i).strip(),f'Signature unexpectedly filled: {i}'
         metadata=E.fromstring(z.read('Contents/content.hpf'))
         assert all(not (node.text or '').strip() for node in metadata.xpath('//*[local-name()="meta"][@name="creator" or @name="lastsaveby"]'))
@@ -84,7 +89,7 @@ with sync_playwright() as p:
             for old,new in zip(before.findall('.//{%s}tc'%HP),cells):
                 for local in ['cellAddr','cellSpan','cellSz','cellMargin']:
                     assert old.find('{%s}%s'%(HP,local)).attrib==new.find('{%s}%s'%(HP,local)).attrib
-        assert '시험참석자' in z.read('Preview/PrvText.txt').decode()
+        assert '김범석' in z.read('Preview/PrvText.txt').decode()
     # Corruption is rejected instead of producing a damaged download.
     assert page.evaluate('''async()=>{const b=await (await fetch('assets/tbm-template.hwpx')).arrayBuffer();new Uint8Array(b)[38]^=1;try{HwpxBuilder.readZip(b);return false;}catch(_){return true;}}''')
     page.set_viewport_size({'width':390,'height':844})
@@ -93,8 +98,8 @@ with sync_playwright() as p:
     page.locator('#generator-tab-daily').click()
     assert page.locator('#daily-generator').is_visible()
     page.locator('#generator-tab-tbm').click()
-    assert page.locator('#tbm-leader').input_value()=='테스트교관'
+    assert page.locator('#tbm-leader').inner_text()=='김승오'
     assert not errors,errors
     browser.close()
 server.shutdown()
-print('PASS: generator switch, risk selection/editing, actual HWPX download, CRC/XML validity, form geometry/styles, escaping, date, names, check results, blank signatures, removed sample data, corrupt-template rejection, mobile layout')
+print('PASS: generator switch, automatic shift/time, ranked workers, multiple areas, fixed risks, manual checkboxes, actual HWPX download, CRC/XML validity, form geometry/styles, blank signatures, mobile layout')
