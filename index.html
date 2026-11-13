@@ -203,27 +203,41 @@ const MISC_TASKS = [
   ['소화기 점검', '* 변전소 소화기점검(대실, 대구은행, 대공원, 영남대)'],
   ['음주측정기 점검', '* 음주측정기 작동상태 점검: 이상없음'],
   ['소방점검 입회', '* 변전소 소방점검 입회(영남대)'],
-  ['바닥왁스 작업 입회', '* 변전소 바닥왁스 작업 입회(대구은행)']
+  ['바닥왁스 작업 입회', '* 변전소 바닥왁스 작업 입회(대구은행)'],
+  ['서무업무', '* 분소행정업무처리']
 ];
-let miscSelections = new Set(), insertedMisc = '';
+const OFFICE_TASK_INDEX = 6;
+const DEFAULT_OFFICE_TASK = ['서무업무', '* 분소행정업무처리'];
+let miscSelections = new Set(), insertedMisc = '', insertedOffice = '';
 const miscStatus = document.querySelector('#misc-status');
 function miscText(selection = miscSelections) {
-  return [...selection].sort((a,b) => a-b).map(i => MISC_TASKS[i][1]).filter(Boolean).map(text => text + '\n').join('');
+  return [...selection].filter(i => i !== OFFICE_TASK_INDEX).sort((a,b) => a-b).map(i => MISC_TASKS[i][1]).filter(Boolean).map(text => text + '\n').join('');
 }
 function updateMisc(selection) {
   if (copyButton.dataset.copying) return false;
   const next = miscText(selection);
+  const office = selection.has(OFFICE_TASK_INDEX) ? MISC_TASKS[OFFICE_TASK_INDEX][1] + '\n' : '';
   if (pending) {
     const item = DATA.find(item => item[0] === pending.id);
     const anchor = `* 위험예지훈련 실시(${item[2]})\n  - 작업 후 :`;
-    if (insertedMisc) {
-      if (!output.value.includes(insertedMisc)) { miscStatus.textContent = '기타업무 본문이 수정되어 자동 교체할 수 없습니다. 위험예지훈련을 다시 선택하세요.'; return false; }
-      output.value = output.value.replace(insertedMisc, next);
-    } else {
-      if (!output.value.includes(anchor)) { miscStatus.textContent = '삽입 위치를 찾을 수 없습니다. 위험예지훈련을 다시 선택하세요.'; return false; }
-      output.value = output.value.replace(anchor, next + anchor);
+    let body = output.value;
+    if (insertedMisc && next !== insertedMisc) {
+      if (!body.includes(insertedMisc)) { miscStatus.textContent = '기타업무 본문이 수정되어 자동 교체할 수 없습니다. 위험예지훈련을 다시 선택하세요.'; return false; }
+      body = body.replace(insertedMisc, next);
+    } else if (next && next !== insertedMisc) {
+      if (!body.includes(anchor)) { miscStatus.textContent = '삽입 위치를 찾을 수 없습니다. 위험예지훈련을 다시 선택하세요.'; return false; }
+      body = body.replace(anchor, next + anchor);
     }
-    insertedMisc = next;
+    const stretch = '* 근골격계질환 대비 스트레칭 실시\n';
+    if (insertedOffice && office !== insertedOffice) {
+      if (!body.includes(insertedOffice)) { miscStatus.textContent = '서무업무 본문이 수정되어 자동 교체할 수 없습니다. 위험예지훈련을 다시 선택하세요.'; return false; }
+      body = body.replace(insertedOffice, office);
+    } else if (office && office !== insertedOffice) {
+      if (!body.includes(stretch)) { miscStatus.textContent = '스트레칭 항목을 찾을 수 없습니다. 위험예지훈련을 다시 선택하세요.'; return false; }
+      body = body.replace(stretch, stretch + office);
+    }
+    output.value = body;
+    insertedMisc = next; insertedOffice = office;
   }
   miscSelections = new Set(selection); miscStatus.textContent = ''; renderMisc(); return true;
 }
@@ -260,13 +274,14 @@ function generate(item) {
   try { inspection = inspectionText(); } catch(error) { inspectionStatus.textContent = error.message; return; }
   activeLogId = crypto.randomUUID(); activeLogVersion = 0;
   insertedMisc = miscText();
+  insertedOffice = miscSelections.has(OFFICE_TASK_INDEX) ? MISC_TASKS[OFFICE_TASK_INDEX][1] + '\n' : '';
   miscStatus.textContent = '';
   insertedInspection = inspection;
   appliedInspections = {...inspectionSelections};
   pending = {id:item[0], category:category.value, confirmed:false, countedInspections:new Set()};
   output.value = `* 업무 인수인계 및 업무분장, 안전교육
 * 근골격계질환 대비 스트레칭 실시
-* 위험예지훈련 실시(${item[2]})
+${insertedOffice}* 위험예지훈련 실시(${item[2]})
   - 작업 전 : ${item[3]}
 ${inspection}${insertedMisc}* 위험예지훈련 실시(${item[2]})
   - 작업 후 : 특이사항 없음
@@ -279,7 +294,7 @@ ${inspection}${insertedMisc}* 위험예지훈련 실시(${item[2]})
 }
 function clearRiskSelection() {
   if (copyButton.dataset.copying) return;
-  insertedMisc = ''; miscStatus.textContent = '';
+  insertedMisc = ''; insertedOffice = ''; miscStatus.textContent = '';
   insertedInspection = ''; appliedInspections = {}; pending = null; output.value = ''; copyButton.disabled = true;
   copyButton.textContent = '복사';
   status.textContent = ''; inspectionStatus.textContent = '';
@@ -351,7 +366,7 @@ function captureState() {
     pending:pending ? {id:pending.id,category:pending.category,confirmed:pending.confirmed} : null,
     inspectionSelections:{...inspectionSelections},appliedInspections:{...appliedInspections},
     inspectionPeriods:inspectionPeriods.map(value=>({...value})),miscSelections:[...miscSelections],
-    insertedInspection,insertedMisc};
+    insertedInspection,insertedMisc,insertedOffice};
 }
 function validState(state) {
   const groups = [...category.options].map(option=>option.value);
@@ -364,11 +379,11 @@ function validState(state) {
     Array.isArray(state.inspectionPeriods) && state.inspectionPeriods.length===INSPECTIONS.length &&
     state.inspectionPeriods.every(period=>period && ['start','end'].every(key=>typeof period[key]==='string' && (!period[key] || /^\d{4}-\d{2}-\d{2}$/.test(period[key])))) &&
     Array.isArray(state.miscSelections) && state.miscSelections.every(i=>Number.isInteger(i) && MISC_TASKS[i]) &&
-    typeof state.insertedInspection==='string' && typeof state.insertedMisc==='string';
+    typeof state.insertedInspection==='string' && typeof state.insertedMisc==='string' && (state.insertedOffice===undefined || typeof state.insertedOffice==='string');
 }
 function validateCatalog(data) {
   if (!data || !Array.isArray(data.training) || !Array.isArray(data.inspections) || !Array.isArray(data.misc)) throw new Error('INVALID_CATALOG');
-  if (data.training.length!==DATA.length || data.inspections.length!==INSPECTIONS.length || data.misc.length!==MISC_TASKS.length) throw new Error('INVALID_CATALOG');
+  if (data.training.length!==DATA.length || data.inspections.length!==INSPECTIONS.length || ![6,7].includes(data.misc.length)) throw new Error('INVALID_CATALOG');
   if (!data.training.every((item,i)=>Array.isArray(item)&&item.length===4&&item[0]===DATA[i][0]&&item.slice(1).every(v=>typeof v==='string'&&v.trim()))) throw new Error('INVALID_CATALOG');
   if (!data.inspections.every((group,i)=>Array.isArray(group)&&group.length===3&&typeof group[0]==='string'&&typeof group[1]==='string'&&Array.isArray(group[2])&&group[2].length===INSPECTIONS[i][2].length&&group[2].every(v=>typeof v==='string'&&v.trim()))) throw new Error('INVALID_CATALOG');
   if (!data.misc.every(item=>Array.isArray(item)&&item.length===2&&item.every(v=>typeof v==='string'&&v.trim()))) throw new Error('INVALID_CATALOG');
@@ -377,7 +392,7 @@ function applyCatalog(data) {
   validateCatalog(data);
   DATA.splice(0,DATA.length,...data.training);
   INSPECTIONS.splice(0,INSPECTIONS.length,...data.inspections);
-  MISC_TASKS.splice(0,MISC_TASKS.length,...data.misc);
+  MISC_TASKS.splice(0,MISC_TASKS.length,...data.misc, ...(data.misc.length===6 ? [[...DEFAULT_OFFICE_TASK]] : []));
   [...inspectionCategory.options].forEach((option,i)=>option.textContent=INSPECTIONS[i][0]);
   buildMisc(); render(); renderInspections();
 }
@@ -388,7 +403,7 @@ function restoreLog(log) {
   pending={...state.pending,countedInspections:new Set()};
   inspectionSelections={...state.inspectionSelections};appliedInspections={...state.appliedInspections};
   state.inspectionPeriods.forEach((period,i)=>inspectionPeriods[i]={...period});
-  miscSelections=new Set(state.miscSelections);insertedInspection=state.insertedInspection;insertedMisc=state.insertedMisc;
+  miscSelections=new Set(state.miscSelections);insertedInspection=state.insertedInspection;insertedMisc=state.insertedMisc;insertedOffice=state.insertedOffice || '';
   activeLogId=log.id;activeLogVersion=log.version;output.value=log.body;dirty=false;
   render();renderInspections();renderMisc();copyButton.disabled=false;status.textContent='';
   setLastCopied(log.updated_at);

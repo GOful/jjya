@@ -21,7 +21,7 @@ Supabase **SQL Editor → New query**에서 [migrate-normalized.sql](migrate-nor
 | `risk_trainings` | 위험예지훈련 23개, 한 항목당 한 행 | `categories`, `risk_text`, `safety_rules` |
 | `inspection_types` | 안전점검 종류 6개 | `name`, `reference_period` |
 | `inspection_items` | 안전점검 세부 항목 46개 | `content` (`type_id`로 종류 연결) |
-| `misc_tasks` | 기타업무 6개 | `title`, `log_text` |
+| `misc_tasks` | 기타업무 7개 | `title`, `log_text` |
 | `work_logs` | 현재 저장된 업무일지 | 앱의 복사 버튼으로 자동 저장 |
 | `work_log_copies` | 복사 당시 본문·선택 항목·날짜 | 앱에서 자동 기록 |
 | `copy_events` | 중복을 제외한 사용 이력 | 앱에서 자동 기록 |
@@ -82,3 +82,10 @@ python tests/browser_shared.py
 SQL 검증은 PGlite(PostgreSQL WASM), 브라우저 검증은 Playwright Python/Chromium과 모의 Supabase API를 사용합니다.
 WASM이 제한된 환경에서는 제한 해제 후 실행하고 실제 이름이 있는 SQL 테스트 2개가 모두 통과했는지 확인합니다.
 실제 Supabase 설정·연결 검증은 별도로 필요합니다.
+
+## 서무업무
+
+서무업무는 `misc_tasks.id = 7`이며, 선택 시 `* 분소행정업무처리`가 스트레칭 바로 아래에 들어갑니다.
+기존 6개 항목만 있는 DB에도 화면에서 기본 항목을 보완하므로 바로 사용할 수 있고 선택 상태는 일지에 함께 저장됩니다.
+DB에서도 이 항목을 관리하려면 정규화가 끝난 프로젝트의 SQL Editor에서 [add-office-task.sql](add-office-task.sql)을 한 번 실행합니다.
+새 프로젝트 설정과 정규화 마이그레이션 파일에는 해당 행이 포함되어 있습니다. 기존 1~6번 항목 ID는 유지합니다.

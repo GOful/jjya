@@ -78,10 +78,19 @@ with sync_playwright() as p:
     first.goto(url);first.wait_for_function("!document.querySelector('#workspace').disabled")
     assert first.locator('#shared-tools,#save-log,#catalog-dialog,#cloud-mode').count()==0
     assert first.locator('#last-copied').inner_text()==''
+    first.locator('#misc-select-6').click()
     first.locator('#items button').first.click()
     first.locator('#inspection-items button').first.click()
     first.locator('#inspection-start').fill('2026-03-25');first.locator('#inspection-end').fill('2026-10-15')
     first.locator('#output-heading').click();first.locator('#misc-select-0').click()
+    text=first.locator('#output').input_value()
+    assert text.index('* 근골격계질환 대비 스트레칭 실시') < text.index('* 분소행정업무처리') < text.index('* 위험예지훈련 실시')
+    assert text.index('* 변전소 전력량 검침') < text.index('작업 후 :')
+    first.locator('#misc-select-6').click()
+    assert '* 분소행정업무처리' not in first.locator('#output').input_value()
+    assert '* 변전소 전력량 검침' in first.locator('#output').input_value()
+    first.locator('#misc-select-6').click()
+    assert first.locator('#output').input_value().count('* 분소행정업무처리')==1
     first.locator('#output').fill(first.locator('#output').input_value()+'\n공유 메모')
     first.locator('#copy').click();first.wait_for_function("!document.querySelector('#copy').disabled")
     assert first.locator('#last-copied').inner_text().startswith('최근 복사 · ')
@@ -99,6 +108,7 @@ with sync_playwright() as p:
     assert second.locator('#items button[aria-pressed=true]').count()==1
     assert second.locator('#inspection-items button[aria-pressed=true]').count()==1
     assert second.locator('#misc-select-0').get_attribute('aria-pressed')=='true'
+    assert second.locator('#misc-select-6').get_attribute('aria-pressed')=='true'
     assert second.locator('#inspection-start').input_value()=='2026-03-25'
     second.locator('#copy').click();second.wait_for_function("!document.querySelector('#copy').disabled")
     assert counts['일상|1']==1

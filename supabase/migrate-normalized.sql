@@ -267,5 +267,6 @@ select l.id,l.version,l.body,l.state,max(e.copied_at),l.updated_by
 from public.work_logs l join public.copy_events e on e.log_id=l.id
 where not exists(select 1 from public.work_log_copies c where c.log_id=l.id)
 group by l.id;
+insert into public.misc_tasks(id,title,log_text) values (7,'서무업무','* 분소행정업무처리') on conflict do nothing;
 notify pgrst, 'reload schema';
 commit;

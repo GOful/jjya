@@ -82,4 +82,5 @@ insert into public.misc_tasks(id,title,log_text) values (3,'소화기 점검','*
 insert into public.misc_tasks(id,title,log_text) values (4,'음주측정기 점검','* 음주측정기 작동상태 점검: 이상없음') on conflict do nothing;
 insert into public.misc_tasks(id,title,log_text) values (5,'소방점검 입회','* 변전소 소방점검 입회(영남대)') on conflict do nothing;
 insert into public.misc_tasks(id,title,log_text) values (6,'바닥왁스 작업 입회','* 변전소 바닥왁스 작업 입회(대구은행)') on conflict do nothing;
+insert into public.misc_tasks(id,title,log_text) values (7,'서무업무','* 분소행정업무처리') on conflict do nothing;
 commit;
