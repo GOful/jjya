@@ -21,6 +21,7 @@ textarea{display:block;width:100%;min-height:310px;padding:18px;border:1px solid
 [hidden]{display:none!important}.workspace{border:0;padding:0;margin:0;min-width:0}.copy-meta{font-size:12px;color:#6b7c89;line-height:1.6;margin:-12px 0 20px}.copy-meta:has(#last-copied:empty):has(#cloud-status:empty){display:none}#cloud-status:empty{display:none}#cloud-status{color:#a1432e;margin:8px 0 0}
 .team-tabs{display:flex;gap:4px;width:fit-content;padding:4px;margin:0 0 20px;border:1px solid #dce4ea;border-radius:10px;background:#eaf0f3}.team-tabs button{min-width:80px;padding:9px 20px;border:0;border-radius:7px;background:transparent;color:#657987;font-size:14px;font-weight:600}.team-tabs button[aria-pressed=true]{background:#fff;color:#176654;box-shadow:0 1px 4px #21364912}.team-tabs button:disabled{opacity:.55}.copy-meta{margin-top:-8px}
 .count-edit-toggle{margin-left:auto;white-space:nowrap;border:1px solid #d6e1e7;border-radius:6px;background:#fff;color:#607588;padding:6px 9px;font-size:11px;font-weight:500}.count-edit-toggle[aria-pressed=true]{background:#edf7f2;color:#176654;border-color:#8cbba7}.editing-counts th:last-child,.editing-counts td:last-child{width:108px}.count-controls{display:flex;align-items:center;justify-content:center;gap:5px}.count-value{font-variant-numeric:tabular-nums;white-space:nowrap}.adjust-count{width:25px;height:27px;display:grid;place-items:center;padding:0;border:1px solid #d5dfe6;border-radius:5px;background:#fff;color:#176654;font-size:17px;flex-shrink:0}.adjust-count:hover:not(:disabled){background:#edf7f2}.adjust-count:disabled{opacity:.3}@media(max-width:480px){.editing-counts td,.editing-counts th{padding-left:6px;padding-right:6px}h2{gap:7px}.count-edit-toggle{padding:6px;font-size:11px}}
+.content-edit-button{white-space:nowrap;border:1px solid #d6e1e7;border-radius:6px;background:#fff;color:#176654;padding:6px 9px;font-size:11px;font-weight:500}.content-edit-button:hover{background:#edf7f2}#training-editor{width:min(620px,calc(100% - 24px));max-height:calc(100dvh - 32px);overflow:auto;border:1px solid #d6e1e7;border-radius:14px;padding:24px;color:#213649}#training-editor::backdrop{background:#172c4066}#training-editor h2{margin-bottom:8px}#training-editor .field{margin:18px 0}#training-editor textarea{min-height:110px;line-height:1.7;padding:12px}#training-edit-risk{min-height:90px!important}.editor-scope{font-size:12px;color:#607588;margin:0}.editor-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}.editor-actions button{padding:10px 18px;border:1px solid #d6e1e7;border-radius:7px;background:#fff;color:#526779}#save-training{background:#176654;color:#fff;border-color:#176654}#training-edit-status{font-size:13px;line-height:1.7;color:#176654}#training-edit-status:empty{display:none}@media(max-width:480px){.content-edit-button{padding:6px;font-size:11px}#training-editor{padding:18px}}
 </style>
 <script src="supabase-config.js"></script>
 <script src="cloud.js"></script>
@@ -33,7 +34,7 @@ textarea{display:block;width:100%;min-height:310px;padding:18px;border:1px solid
 <fieldset id="workspace" class="workspace">
 <div class="inspection-columns">
 <section class="card" aria-labelledby="list-heading">
-<h2 id="list-heading"><span class="step">1</span>위험예지훈련<button type="button" class="count-edit-toggle" aria-pressed="false">횟수 수정</button></h2>
+<h2 id="list-heading"><span class="step">1</span>위험예지훈련<button type="button" class="count-edit-toggle" aria-pressed="false">횟수 수정</button><button type="button" id="edit-training" class="content-edit-button">내용 수정</button></h2>
 <div id="notice" role="alert" hidden></div>
 <div class="bar training-toolbar"><label class="field" for="category"><span>분류</span><select id="category"><option>전체</option><option selected>일상</option><option>MCC</option><option>3개월</option><option>6개월</option><option>1년</option><option>수전선로</option></select></label></div>
 <div class="table-wrap"><table><thead><tr><th scope="col">분류</th><th scope="col">위험예지훈련</th><th scope="col">사용 횟수</th></tr></thead><tbody id="items"></tbody></table></div>
@@ -62,6 +63,17 @@ textarea{display:block;width:100%;min-height:310px;padding:18px;border:1px solid
 </div>
 </fieldset>
 
+<dialog id="training-editor" aria-labelledby="training-editor-heading">
+<form id="training-edit-form">
+<h2 id="training-editor-heading">위험예지훈련 내용 수정</h2>
+<p class="editor-scope">갑조 · 을조 · 병조 공통</p>
+<label class="field" for="training-edit-item"><span>항목</span><select id="training-edit-item" required></select></label>
+<label class="field" for="training-edit-risk"><span>위험예지훈련 내용</span><textarea id="training-edit-risk" required maxlength="5000"></textarea></label>
+<label class="field" for="training-edit-rules"><span>작업 전 안전수칙</span><textarea id="training-edit-rules" required maxlength="10000"></textarea></label>
+<p id="training-edit-status" role="status" aria-live="polite"></p>
+<div class="editor-actions"><button type="submit" id="save-training">저장</button><button type="button" id="close-training-editor">닫기</button></div>
+</form>
+</dialog>
 </main>
 <script>
 'use strict';
@@ -154,7 +166,7 @@ function render() {
   const selected = document.querySelector('#risk-selected'); selected.replaceChildren();
   if (pending) {
     const chip = document.createElement('span'); chip.className = 'selection-chip';
-    const text = document.createElement('span'); text.textContent = DATA.find(item => item[0] === pending.id)[2];
+    const text = document.createElement('span'); text.textContent = pending.riskText || DATA.find(item => item[0] === pending.id)[2];
     const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'remove-selection';
     remove.textContent = '×'; remove.title = '선택 해제'; remove.setAttribute('aria-label', '위험예지훈련 선택 해제');
     remove.addEventListener('click', clearRiskSelection);
@@ -229,7 +241,7 @@ function applyInspectionSelection(selections) {
     const next = inspectionText(selections);
     if (pending) {
       const item = DATA.find(item => item[0] === pending.id);
-      const anchor = `* 위험예지훈련 실시(${item[2]})\n  - 작업 후 :`;
+      const anchor = `* 위험예지훈련 실시(${pending.riskText || item[2]})\n  - 작업 후 :`;
       if (insertedInspection) {
         if (!output.value.includes(insertedInspection)) throw new Error('기존 안전점검 본문이 직접 수정되어 자동 교체할 수 없습니다. 위험예지훈련을 다시 선택하거나 본문에서 직접 수정하세요.');
         output.value = output.value.replace(insertedInspection, next);
@@ -275,7 +287,7 @@ function updateMisc(selection) {
   const office = selection.has(OFFICE_TASK_INDEX) ? MISC_TASKS[OFFICE_TASK_INDEX][1] + '\n' : '';
   if (pending) {
     const item = DATA.find(item => item[0] === pending.id);
-    const anchor = `* 위험예지훈련 실시(${item[2]})\n  - 작업 후 :`;
+    const anchor = `* 위험예지훈련 실시(${pending.riskText || item[2]})\n  - 작업 후 :`;
     let body = output.value;
     if (insertedMisc && next !== insertedMisc) {
       if (!body.includes(insertedMisc)) { miscStatus.textContent = '기타업무 본문이 수정되어 자동 교체할 수 없습니다. 위험예지훈련을 다시 선택하세요.'; return false; }
@@ -336,7 +348,7 @@ function generate(item) {
   miscStatus.textContent = '';
   insertedInspection = inspection;
   appliedInspections = {...inspectionSelections};
-  pending = {id:item[0], category:category.value, confirmed:false, countedInspections:new Set()};
+  pending = {id:item[0], category:category.value, riskText:item[2], confirmed:false, countedInspections:new Set()};
   output.value = `* 업무 인수인계 및 업무분장, 안전교육
 * 근골격계질환 대비 스트레칭 실시
 ${insertedOffice}* 위험예지훈련 실시(${item[2]})
@@ -369,7 +381,7 @@ async function copyText(text) {
 copyButton.addEventListener('click', async () => {
   if (busy || cloudWorking || !pending || !output.value.trim() || (shared?.enabled && !currentUser)) return;
   const selected = pending;
-  const inspectionControls = [...document.querySelectorAll('#inspections button, #inspections input, #inspections select, #misc-items button, #misc-selected button, .team-tabs button, .count-edit-toggle, .adjust-count')];
+  const inspectionControls = [...document.querySelectorAll('#inspections button, #inspections input, #inspections select, #misc-items button, #misc-selected button, .team-tabs button, .count-edit-toggle, .adjust-count, #edit-training')];
   inspectionControls.forEach(control => control.disabled = true);
   busy = true; copyButton.disabled = true; copyButton.dataset.copying = 'true'; category.disabled = true; output.readOnly = true;
   let clipboardDone = false;
@@ -414,6 +426,8 @@ function cloudMessage(message) { cloudStatus.textContent = message; }
 function formatTime(value) { return new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}); }
 function setLastCopied(value) { document.querySelector('#last-copied').textContent = value ? `최근 복사 · ${formatTime(value)}` : ''; }
 function friendlyError(error, fallback = '요청을 완료하지 못했습니다.') {
+  if (error.message?.includes('CONTENT_EDIT_MIGRATION_REQUIRED')) return '점검 내용 테이블 전환 SQL을 먼저 실행해 주세요.';
+  if (error.message?.includes('CONTENT_VERSION_CONFLICT')) return '다른 사람이 이 항목을 먼저 수정했습니다. 입력 내용을 따로 복사한 후 창을 닫고 다시 열어주세요.';
   if (error.message?.includes('COUNT_EDIT_MIGRATION_REQUIRED')) return '횟수 수정 설정 SQL을 먼저 실행해 주세요.';
   if (error.message?.includes('TEAM_MIGRATION_REQUIRED')) return '조별 집계 설정 SQL을 먼저 실행해 주세요.';
   if (error.message?.includes('VERSION_CONFLICT')) return '다른 사람이 먼저 수정했습니다. 현재 내용을 따로 복사해 둔 뒤 새로고침하세요.';
@@ -423,7 +437,7 @@ function friendlyError(error, fallback = '요청을 완료하지 못했습니다
 }
 function captureState() {
   return {schemaVersion:1,team:activeTeam,category:category.value,inspectionCategory:inspectionCategory.value,
-    pending:pending ? {id:pending.id,category:pending.category,confirmed:pending.confirmed} : null,
+    pending:pending ? {id:pending.id,category:pending.category,riskText:pending.riskText,confirmed:pending.confirmed} : null,
     inspectionSelections:{...inspectionSelections},appliedInspections:{...appliedInspections},
     inspectionPeriods:inspectionPeriods.map(value=>({...value})),miscSelections:[...miscSelections],
     insertedInspection,insertedMisc,insertedOffice};
@@ -433,6 +447,7 @@ function validState(state) {
   const validSelections = selection => selection && typeof selection==='object' && !Array.isArray(selection) &&
     Object.entries(selection).every(([i,j])=>INSPECTIONS[i] && Number.isInteger(j) && j>=0 && j<INSPECTIONS[i][2].length);
   return state?.schemaVersion===1 && groups.includes(state.category) && state.pending &&
+    (state.pending.riskText===undefined || typeof state.pending.riskText==='string') &&
     DATA.some(item=>item[0]===state.pending.id) && groups.includes(state.pending.category) &&
     Number.isInteger(Number(state.inspectionCategory)) && INSPECTIONS[Number(state.inspectionCategory)] &&
     validSelections(state.inspectionSelections) && validSelections(state.appliedInspections) &&
@@ -460,7 +475,8 @@ function restoreLog(log) {
   const state=log.state;
   if (!validState(state) || (log.team && log.team!==activeTeam) || (state.team && state.team!==activeTeam)) throw new Error('INVALID_STATE');
   category.value=state.category; inspectionCategory.value=state.inspectionCategory;
-  pending={...state.pending,countedInspections:new Set()};
+  const previousRiskLine=log.body.split('\n').find(line=>line.startsWith('* 위험예지훈련 실시(')&&line.endsWith(')'));
+  pending={...state.pending,riskText:state.pending.riskText || (previousRiskLine ? previousRiskLine.slice('* 위험예지훈련 실시('.length,-1) : DATA.find(item=>item[0]===state.pending.id)[2]),countedInspections:new Set()};
   inspectionSelections={...state.inspectionSelections};appliedInspections={...state.appliedInspections};
   state.inspectionPeriods.forEach((period,i)=>inspectionPeriods[i]={...period});
   miscSelections=new Set(state.miscSelections);insertedInspection=state.insertedInspection;insertedMisc=state.insertedMisc;insertedOffice=state.insertedOffice || '';
@@ -513,6 +529,58 @@ document.querySelectorAll('[data-team]').forEach(button=>button.addEventListener
   }
 }));
 updateTeamTabs();
+const trainingEditor=document.querySelector('#training-editor');
+const trainingEditSelect=document.querySelector('#training-edit-item');
+const trainingEditRisk=document.querySelector('#training-edit-risk');
+const trainingEditRules=document.querySelector('#training-edit-rules');
+const trainingEditStatus=document.querySelector('#training-edit-status');
+let trainingOriginals=[],trainingSaving=false;
+const trainingDrafts=new Map();
+function showTrainingFields(){
+  const id=Number(trainingEditSelect.value);
+  const original=trainingOriginals.find(item=>item[0]===id);
+  const draft=trainingDrafts.get(id);
+  trainingEditRisk.value=draft?.riskText ?? original[2];trainingEditRules.value=draft?.safetyRules ?? original[3];trainingEditStatus.textContent='';
+}
+[trainingEditRisk,trainingEditRules].forEach(input=>input.addEventListener('input',()=>{
+  trainingDrafts.set(Number(trainingEditSelect.value),{riskText:trainingEditRisk.value,safetyRules:trainingEditRules.value});
+}));
+trainingEditSelect.addEventListener('change',showTrainingFields);
+document.querySelector('#edit-training').addEventListener('click',()=>{
+  if(!shared?.enabled){cloudMessage('공통 내용 수정은 DB 연결 상태에서 사용할 수 있습니다.');return;}
+  cloudAction(async()=>{
+    const catalog=await shared.readCatalog({force:true});validateCatalog(catalog.data);
+    trainingOriginals=structuredClone(catalog.data.training);trainingDrafts.clear();trainingEditSelect.replaceChildren();
+    trainingOriginals.forEach(item=>{
+      const option=document.createElement('option');option.value=item[0];option.textContent=`${item[0]}. ${item[2]} (${item[1]})`;trainingEditSelect.append(option);
+    });
+    const preferred=pending?.id ?? DATA.find(item=>category.value==='전체'||item[1].split(',').includes(category.value))?.[0];
+    if(preferred)trainingEditSelect.value=preferred;
+    showTrainingFields();trainingEditor.showModal();
+  });
+});
+document.querySelector('#close-training-editor').addEventListener('click',()=>{if(!trainingSaving)trainingEditor.close();});
+trainingEditor.addEventListener('cancel',event=>{if(trainingSaving)event.preventDefault();});
+document.querySelector('#training-edit-form').addEventListener('submit',async event=>{
+  event.preventDefault();if(trainingSaving)return;
+  const original=trainingOriginals.find(item=>item[0]===Number(trainingEditSelect.value));
+  const riskText=trainingEditRisk.value.trim(),safetyRules=trainingEditRules.value.trim();
+  if(!riskText||!safetyRules){trainingEditStatus.textContent='내용과 안전수칙을 입력하세요.';return;}
+  trainingSaving=true;
+  const controls=[...trainingEditor.querySelectorAll('button,select,textarea')];controls.forEach(control=>control.disabled=true);
+  trainingEditStatus.textContent='저장 중…';
+  try{
+    const saved=await shared.updateTraining({id:original[0],riskText:original[2],safetyRules:original[3]},riskText,safetyRules);
+    const item=DATA.find(item=>item[0]===saved.id);
+    if(pending?.id===saved.id&&!pending.riskText)pending.riskText=item[2];
+    item[2]=saved.risk_text;item[3]=saved.safety_rules;
+    original[2]=saved.risk_text;original[3]=saved.safety_rules;trainingDrafts.delete(saved.id);
+    trainingEditRisk.value=saved.risk_text;trainingEditRules.value=saved.safety_rules;
+    trainingEditSelect.selectedOptions[0].textContent=`${original[0]}. ${original[2]} (${original[1]})`;
+    render();trainingEditStatus.textContent='세 조 공통으로 저장했습니다. 새로 생성하는 일지에 적용됩니다.';
+  }catch(error){trainingEditStatus.textContent=friendlyError(error,'내용을 저장하지 못했습니다.');}
+  finally{trainingSaving=false;controls.forEach(control=>control.disabled=false);}
+});
 workspace.addEventListener('input',()=>{if(shared?.enabled)dirty=true;});
 workspace.addEventListener('click',event=>{if(shared?.enabled&&event.target.closest('.item,.remove-selection,#misc-items button'))dirty=true;});
 window.addEventListener('beforeunload',event=>{if(shared?.enabled&&dirty){event.preventDefault();event.returnValue='';}});

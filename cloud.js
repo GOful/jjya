@@ -19,9 +19,10 @@
     session = value;
     try { value ? sessionStorage.setItem(storageKey, JSON.stringify(value)) : sessionStorage.removeItem(storageKey); } catch (_) { /* Memory-only session. */ }
   }
-  async function request(path, {method = 'GET', body, token} = {}) {
+  async function request(path, {method = 'GET', body, token, prefer} = {}) {
     const headers = {apikey:config.publishableKey};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
+    if (prefer) headers.Prefer=prefer;
     if (token) headers.Authorization = `Bearer ${token}`;
     const response = await fetch(base + path, {method, headers, body:body === undefined ? undefined : JSON.stringify(body)});
     const text = await response.text();
@@ -85,10 +86,10 @@
       ]);
       return {catalog,counts,copied};
     },
-    async readCatalog() {
+    async readCatalog({force = false} = {}) {
       // Team contents are common. Share one in-flight request and cache it briefly.
       // Counts and the last copied log are never cached.
-      if(catalogPromise && Date.now()-catalogFetchedAt<CATALOG_TTL)return catalogPromise;
+      if(!force && catalogPromise && Date.now()-catalogFetchedAt<CATALOG_TTL)return catalogPromise;
       catalogFetchedAt=Date.now();
       catalogPromise=(async()=>{
         try { return await db('rpc/get_app_catalog',{method:'POST',body:{}}); }
@@ -128,6 +129,18 @@
         if(team!=='갑조')throw new Error('TEAM_MIGRATION_REQUIRED');
         return db('rpc/shared_usage_counts',{method:'POST',body:{}});
       }
+    },
+    async updateTraining(original,riskText,safetyRules) {
+      if(!Number.isInteger(original.id)||!riskText.trim()||!safetyRules.trim())throw new Error('EMPTY_TRAINING_CONTENT');
+      // Match the previously read content to avoid silently overwriting another editor.
+      const quoted=value=>'eq."'+value.replaceAll('\\','\\\\').replaceAll('"','\\"')+'"';
+      const query=new URLSearchParams({id:`eq.${original.id}`,risk_text:quoted(original.riskText),safety_rules:quoted(original.safetyRules)});
+      let rows;
+      try{rows=await db(`risk_trainings?${query}`,{method:'PATCH',prefer:'return=representation',body:{risk_text:riskText.trim(),safety_rules:safetyRules.trim()}});}
+      catch(error){if(error.status===404)throw new Error('CONTENT_EDIT_MIGRATION_REQUIRED');throw error;}
+      if(!Array.isArray(rows)||rows.length!==1)throw new Error('CONTENT_VERSION_CONFLICT');
+      catalogPromise=null;catalogFetchedAt=0;
+      return rows[0];
     },
     async adjustCount(team,key,delta,requestId) {
       validTeam(team);

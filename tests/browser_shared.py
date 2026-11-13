@@ -4,6 +4,8 @@ Run: python tests/browser_shared.py (requires playwright and Chromium).
 import json
 import threading
 import uuid
+import re
+from urllib.parse import urlparse, parse_qs
 from functools import partial
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
@@ -51,6 +53,21 @@ def respond(route):
         result=dict(id=copy['log_id'],version=copy['log_version'],body=copy['body'],state=copy['state'],updated_at=copy['copied_at'],team=body['p_team']) if copy else None
     elif path.startswith('/rest/v1/rpc/shared_usage_counts'):
         result = counts
+    elif path.startswith('/rest/v1/risk_trainings?'):
+        assert request.method=='PATCH'
+        assert request.headers.get('prefer')=='return=representation'
+        query=parse_qs(urlparse(request.url).query)
+        identifier=int(query['id'][0].removeprefix('eq.'))
+        def unquote_filter(value):
+            assert value.startswith('eq.\"') and value.endswith('\"')
+            return re.sub(r'\\(.)',r'\1',value[4:-1])
+        item=next(item for item in catalog['training'] if item[0]==identifier)
+        assert set(body)=={'risk_text','safety_rules'}
+        if item[2]!=unquote_filter(query['risk_text'][0]) or item[3]!=unquote_filter(query['safety_rules'][0]):
+            result=[]
+        else:
+            item[2]=body['risk_text'];item[3]=body['safety_rules'];catalog_version+=1
+            result=[{'id':identifier,'categories':item[1].split(','),'risk_text':item[2],'safety_rules':item[3]}]
     elif path.startswith('/rest/v1/work_logs'):
         if '&id=eq.' in path:
             result = [logs[path.split('&id=eq.')[1]]]
@@ -212,6 +229,52 @@ with sync_playwright() as p:
     assert retry_cell.locator('.count-value').inner_text()=='1회'
     assert team_counts['을조']['일상|3']==1
     second.locator('.count-edit-toggle').first.click()
+    # Content editing applies to all teams without resetting counts or modifying an existing draft.
+    original_body=first.locator('#output').input_value()
+    original_date=first.locator('#last-copied').inner_text()
+    counts_before=json.dumps(team_counts,sort_keys=True)
+    first.locator('#edit-training').click();first.locator('#training-editor').wait_for(state='visible')
+    first.select_option('#training-edit-item','1')
+    first.locator('#training-edit-risk').fill('수정된 위험 "항목", (공통)')
+    first.locator('#training-edit-rules').fill('공통 안전수칙\n작업 전 차단 확인')
+    first.locator('#save-training').click()
+    first.wait_for_function("document.querySelector('#training-edit-status').textContent.includes('공통으로 저장')")
+    first.locator('#close-training-editor').click()
+    assert first.locator('#output').input_value()==original_body
+    assert first.locator('#last-copied').inner_text()==original_date
+    assert first.locator('#items tr[data-item-id="1"] button').inner_text()=='수정된 위험 "항목", (공통)'
+    # Existing pending snapshots keep their original anchors for later inspection/misc selection.
+    first.locator('#misc-select-0').click();first.locator('#misc-select-0').click()
+    assert first.locator('#output').input_value()==original_body
+    assert json.dumps(team_counts,sort_keys=True)==counts_before
+    # Concurrent edits must not silently overwrite the database or clear the typed input.
+    first.locator('#edit-training').click();first.locator('#training-editor').wait_for(state='visible')
+    first.select_option('#training-edit-item','1')
+    catalog['training'][0][2]='다른 사람이 먼저 수정'
+    first.locator('#training-edit-risk').fill('덮어쓰면 안 되는 입력')
+    first.locator('#save-training').click()
+    first.wait_for_function("document.querySelector('#training-edit-status').textContent.includes('다른 사람이')")
+    assert first.locator('#training-edit-risk').input_value()=='덮어쓰면 안 되는 입력'
+    assert catalog['training'][0][2]=='다른 사람이 먼저 수정'
+    first.locator('#close-training-editor').click()
+    first.locator('#edit-training').click();first.locator('#training-editor').wait_for(state='visible')
+    first.select_option('#training-edit-item','1')
+    assert first.locator('#training-edit-risk').input_value()=='다른 사람이 먼저 수정'
+    first.locator('#training-edit-risk').fill('공통 최종 위험항목')
+    first.locator('#save-training').click()
+    first.wait_for_function("document.querySelector('#training-edit-status').textContent.includes('공통으로 저장')")
+    first.locator('#close-training-editor').click()
+    second.reload();second.wait_for_function("!document.querySelector('#workspace').disabled")
+    for team in ['갑조','을조','병조']:
+        switch(team)
+        assert second.locator('#items tr[data-item-id="1"] button').inner_text()=='공통 최종 위험항목'
+    second.locator('#items tr[data-item-id="1"] button').click()
+    assert '공통 최종 위험항목' in second.locator('#output').input_value()
+    assert '공통 안전수칙\n작업 전 차단 확인' in second.locator('#output').input_value()
+    assert json.dumps(team_counts,sort_keys=True)==counts_before
+    second.locator('#edit-training').click();second.locator('#training-editor').wait_for(state='visible')
+    assert second.locator('#training-editor').bounding_box()['width']<=390
+    second.locator('#close-training-editor').click()
     # Keep v1 database compatibility until the owner applies migration SQL.
     def legacy_api(route):
         path=route.request.url.split('.supabase.co',1)[1]
