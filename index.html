@@ -18,6 +18,7 @@ textarea{display:block;width:100%;min-height:310px;padding:18px;border:1px solid
 @media(max-width:480px){h1{font-size:23px}h2{font-size:16px;margin-bottom:16px}main{padding:0 12px 16px}.card{padding:16px}.inspection-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.inspection-toolbar .field:first-child{grid-column:1/-1}.training-toolbar{grid-template-columns:1fr}#misc-items button{padding:10px;font-size:12px;gap:7px}td,th{padding:10px 8px}th:first-child,td:first-child{width:66px}textarea{padding:12px;font-size:13px;min-height:340px}}
 .work-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin-top:18px;align-items:start}.work-columns>.card{margin-top:0}.work-columns textarea{min-height:360px}@media(max-width:820px){.work-columns{grid-template-columns:1fr;gap:16px;margin-top:16px}}
 [hidden]{display:none!important}.workspace{border:0;padding:0;margin:0;min-width:0}.copy-meta{font-size:12px;color:#6b7c89;line-height:1.6;margin:-12px 0 20px}.copy-meta:has(#last-copied:empty):has(#cloud-status:empty){display:none}#cloud-status:empty{display:none}#cloud-status{color:#a1432e;margin:8px 0 0}
+.team-tabs{display:flex;gap:4px;width:fit-content;padding:4px;margin:0 0 20px;border:1px solid #dce4ea;border-radius:10px;background:#eaf0f3}.team-tabs button{min-width:80px;padding:9px 20px;border:0;border-radius:7px;background:transparent;color:#657987;font-size:14px;font-weight:600}.team-tabs button[aria-pressed=true]{background:#fff;color:#176654;box-shadow:0 1px 4px #21364912}.team-tabs button:disabled{opacity:.55}.copy-meta{margin-top:-8px}
 </style>
 <script src="supabase-config.js"></script>
 <script src="cloud.js"></script>
@@ -25,6 +26,7 @@ textarea{display:block;width:100%;min-height:310px;padding:18px;border:1px solid
 <body>
 <main>
 <header><h1>일일업무일지 생성기</h1></header>
+<div class="team-tabs" role="group" aria-label="조 선택"><button type="button" data-team="갑조" aria-pressed="true">갑조</button><button type="button" data-team="을조" aria-pressed="false">을조</button><button type="button" data-team="병조" aria-pressed="false">병조</button></div>
 <div class="copy-meta"><span id="last-copied"></span><p id="cloud-status" role="status" aria-live="polite"></p></div>
 <fieldset id="workspace" class="workspace">
 <div class="inspection-columns">
@@ -62,7 +64,11 @@ textarea{display:block;width:100%;min-height:310px;padding:18px;border:1px solid
 <script>
 'use strict';
 const DATA = [[1, "일상", "단자대 볼트 조임시 돌출부에 의한 긁힘", "적절한 공구 사용, 작업전 안전교육, 안전모, 절연장갑 착용"], [2, "일상", "분전반 쇄정", "모든 작업후 및 일상점검 시 분전반 쇄정확인 철저"], [3, "일상", "전기,기계기구를 이용한 작업시 각종 안전사고", "안전화, 안전모 착용, 작업전 안전교육, 보안경 착용, 그라인더·고속절단기 작업안전수칙 준수"], [4, "일상", "조작반 오조작에 의한 전원 투입", "작업 전 안전교육, 작업 전 계통 숙지, 작업중 표지판 부착, 작업안전수칙 준수"], [5, "일상", "모선,케이블헤드, 볼트 등 돌출부 충돌", "작업전 안전교육, 안전모, 절연장갑 착용, 전방주시 철저"], [6, "일상", "진공 인터럽터 절연불량으로 인한 가압", "작업전 안전교육, 절연장갑 및 절연화 착용, 작업개소 전원차단 및 검전 실시, 절연상태 확인, 작업안전수칙 준수"], [7, "일상", "교육훈련 및 절차 미준수", "직무교육 실시, 비상대응훈련 실시 사고사례 교육 실시"], [8, "일상", "배전반내 공간 협소 및 돌출부로 인한 외상", "작업전 안전교육, 안전모, 절연장갑 착용, 전방주시 철저"], [9, "일상", "점검중 활선 충전부 접근 및 접촉", "작업전 안전교육, 작업개소 전원차단 및 작업중 표지설치, 절연장갑착용"], [10, "일상,3개월,6개월,1년", "분전반 내부작업시 날카로운 부위에 긁힘", "작업전 안전교육, 안전모, 절연화, 절연장갑 착용, 내부 돌출부 및 날카로운 부위 확인, 무리한 작업자세 금지"], [11, "일상,3개월,6개월,1년", "수동 및 자동 오취급에 의한 감전사고", "작업 전 안전교육, 안전작업을 위한 접지 설치, 작업안전수칙 준수"], [12, "일상,3개월,6개월,1년", "작업구간이 협소하여 구조물과 충돌 발생", "작업전 안전교육, 안전모 착용, 작업공간 및 주변 돌출부 확인, 이동 동선 확보, 전방주시 철저"], [13, "3개월", "평활용 콘덴서 잔류전하에 의한 전류접촉", "작업전 안전교육, 계통숙지, 절연장갑착용,접촉전방전실시"], [14, "3개월", "축전지 단자전압 측정시 단락으로 인한 화상", "작업전 안전교육, 절연보호덮개취부, 절연장갑착용, 전기안전수칙준수"], [15, "3개월,6개월,1년", "정류부, 축전지 등 충전부 활선 접촉", "작업전 안전교육, 절연보호덮개취부, 절연장갑착용,전기안전수칙준수"], [16, "6개월,1년", "인출작업중 차단기 중량으로 인한 손, 발 끼임", "작업전 안전교육, 안전모, 절연장갑, 절연화 착용, 중량물 취급 매뉴얼 숙지"], [17, "수전선로", "맨홀, 트라프 등 중량물에 의한 손, 발 끼임", "작업전 안전교육, 안전모, 안전화, 보호장갑 착용, 중량물 취급 안전수칙 준수, 2인 1조 작업 및 협착 주의"], [18, "MCC", "MCC반 주변설비에 부딪힘", "작업전안전교육 및 사전위험 요소 파악, 안전모착용"], [19, "MCC", "MCC반 미 쇄정", "MCC반 쇄정상태 확인, 잠금장치 파손여부 확인"], [20, "MCC", "MCC반 내부 점검시 날카로운 부위에 긁힘", "안전모, 절연장갑 착용, 내부 돌출부 및 날카로운 부위 확인, 작업안전수칙 준수"], [21, "MCC", "MCC 오동작으로 인한 전원 투입", "작업전 안전교육, 작업개소 전원차단 및 작업중 표지설치, 절연장갑 착용, 전기안전수칙준수"], [22, "MCC", "콘덴서 폭발", "안전모, 보안경, 절연장갑 착용, 콘덴서 외관 및 이상징후 확인, 잔류전하 방전 및 무전압 확인"], [23, "MCC", "콘덴서 잔류전하에 의한 전류 접촉", "작업전 안전교육, 작업개소 전원차단 및 작업중 표지설치, 절연장갑착용, 접촉전방전실시"]];
+let activeTeam = '갑조';
+try { const last = localStorage.getItem('jjya.last-team'); if(['갑조','을조','병조'].includes(last)) activeTeam=last; } catch (_) {}
 const STORAGE_KEY = 'jjya.usage-counts.v1';
+const countsStorageKey = () => activeTeam==='갑조' ? STORAGE_KEY : `${STORAGE_KEY}:${activeTeam}`;
+const teamDrafts = new Map();
 const category = document.querySelector('#category');
 const items = document.querySelector('#items');
 const output = document.querySelector('#output');
@@ -74,7 +80,7 @@ const shared = window.SharedStore;
 let activeLogId = crypto.randomUUID(), activeLogVersion = 0, dirty = false, cloudWorking = false;
 function warn(message) { notice.hidden = false; notice.textContent = message; }
 try {
-  const saved = window.SharedStore?.enabled ? null : localStorage.getItem(STORAGE_KEY);
+  const saved = window.SharedStore?.enabled ? null : localStorage.getItem(countsStorageKey());
   if (saved !== null) {
     const parsed = JSON.parse(saved);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || Object.values(parsed).some(v => !Number.isSafeInteger(v) || v < 0)) throw new Error('invalid data');
@@ -314,7 +320,7 @@ async function copyText(text) {
 copyButton.addEventListener('click', async () => {
   if (busy || cloudWorking || !pending || !output.value.trim() || (shared?.enabled && !currentUser)) return;
   const selected = pending;
-  const inspectionControls = [...document.querySelectorAll('#inspections button, #inspections input, #inspections select, #misc-items button, #misc-selected button')];
+  const inspectionControls = [...document.querySelectorAll('#inspections button, #inspections input, #inspections select, #misc-items button, #misc-selected button, .team-tabs button')];
   inspectionControls.forEach(control => control.disabled = true);
   busy = true; copyButton.disabled = true; copyButton.dataset.copying = 'true'; category.disabled = true; output.readOnly = true;
   let clipboardDone = false;
@@ -322,7 +328,7 @@ copyButton.addEventListener('click', async () => {
     await copyText(output.value); clipboardDone = true;
     const keys = Object.entries(appliedInspections).map(([i,j]) => inspectionKey(i,j));
     if (shared?.enabled) {
-      const result = await shared.save({id:activeLogId,version:activeLogVersion,body:output.value,state:captureState(),keys:[keyFor(selected.category,selected.id),...keys]});
+      const result = await shared.save({id:activeLogId,version:activeLogVersion,body:output.value,state:captureState(),team:activeTeam,keys:[keyFor(selected.category,selected.id),...keys]});
       activeLogVersion = result.version; counts = result.counts; dirty = false;
       selected.confirmed = true;
       render(); renderInspections();
@@ -337,7 +343,7 @@ copyButton.addEventListener('click', async () => {
         const key = keyFor(selected.category, selected.id); next[key] = (next[key] || 0) + 1;
       }
       for (const key of newKeys) next[key] = (next[key] || 0) + 1;
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); }
+      try { localStorage.setItem(countsStorageKey(), JSON.stringify(next)); }
       catch (_) { status.textContent = '복사는 완료했지만 사용 횟수를 저장하지 못했습니다. 저장소 설정을 확인한 후 다시 시도하세요.'; return; }
       counts = next; selected.confirmed = true;
       newKeys.forEach(key => selected.countedInspections.add(key));
@@ -349,7 +355,7 @@ copyButton.addEventListener('click', async () => {
     status.textContent = '자동 복사에 실패했습니다. 본문을 직접 복사하거나 브라우저의 클립보드 권한을 확인하고 다시 시도하세요. 사용 횟수는 증가하지 않았습니다.';
   } finally {
     inspectionControls.forEach(control => control.disabled = false);
-    busy = false; copyButton.disabled = !pending || Boolean(shared?.enabled && !currentUser); delete copyButton.dataset.copying; category.disabled = false; output.readOnly = false;
+    busy = false; updateTeamTabs(); copyButton.disabled = !pending || Boolean(shared?.enabled && !currentUser); delete copyButton.dataset.copying; category.disabled = false; output.readOnly = false;
   }
 });
 let currentUser = null;
@@ -359,13 +365,14 @@ function cloudMessage(message) { cloudStatus.textContent = message; }
 function formatTime(value) { return new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}); }
 function setLastCopied(value) { document.querySelector('#last-copied').textContent = value ? `최근 복사 · ${formatTime(value)}` : ''; }
 function friendlyError(error, fallback = '요청을 완료하지 못했습니다.') {
+  if (error.message?.includes('TEAM_MIGRATION_REQUIRED')) return '조별 집계 설정 SQL을 먼저 실행해 주세요.';
   if (error.message?.includes('VERSION_CONFLICT')) return '다른 사람이 먼저 수정했습니다. 현재 내용을 따로 복사해 둔 뒤 새로고침하세요.';
   if (error.message?.includes('ANONYMOUS_AUTH_REQUIRED')) return '공유 연결을 다시 시도하세요.';
   if ([401,403].includes(error.status)) return '익명 접속 설정을 확인하고 새로고침하세요.';
   return fallback + ' 연결 설정를 확인하고 다시 시도하세요.';
 }
 function captureState() {
-  return {schemaVersion:1,category:category.value,inspectionCategory:inspectionCategory.value,
+  return {schemaVersion:1,team:activeTeam,category:category.value,inspectionCategory:inspectionCategory.value,
     pending:pending ? {id:pending.id,category:pending.category,confirmed:pending.confirmed} : null,
     inspectionSelections:{...inspectionSelections},appliedInspections:{...appliedInspections},
     inspectionPeriods:inspectionPeriods.map(value=>({...value})),miscSelections:[...miscSelections],
@@ -401,7 +408,7 @@ function applyCatalog(data) {
 }
 function restoreLog(log) {
   const state=log.state;
-  if (!validState(state)) throw new Error('INVALID_STATE');
+  if (!validState(state) || (log.team && log.team!==activeTeam) || (state.team && state.team!==activeTeam)) throw new Error('INVALID_STATE');
   category.value=state.category; inspectionCategory.value=state.inspectionCategory;
   pending={...state.pending,countedInspections:new Set()};
   inspectionSelections={...state.inspectionSelections};appliedInspections={...state.appliedInspections};
@@ -413,19 +420,49 @@ function restoreLog(log) {
 }
 async function cloudAction(action) {
   if(cloudWorking || busy) return;
-  cloudWorking=true;workspace.disabled=true;
+  cloudWorking=true;workspace.disabled=true;updateTeamTabs();
   try {await action();} catch(error) {cloudMessage(friendlyError(error));}
-  finally {cloudWorking=false;workspace.disabled=Boolean(shared?.enabled&&!currentUser);}
+  finally {cloudWorking=false;workspace.disabled=Boolean(shared?.enabled&&!currentUser);updateTeamTabs();}
+}
+function updateTeamTabs() {
+  document.querySelectorAll('[data-team]').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.team===activeTeam));
+    button.disabled = busy || cloudWorking || Boolean(shared?.enabled && (!currentUser || (!shared.teamsReady && button.dataset.team!=='갑조')));
+  });
+}
+function resetTeamSelection() {
+  clearRiskSelection();inspectionSelections={};appliedInspections={};miscSelections=new Set();insertedMisc='';insertedOffice='';insertedInspection='';
+  inspectionPeriods.forEach((_,i)=>inspectionPeriods[i]={start:'',end:''});
+  activeLogId=crypto.randomUUID();activeLogVersion=0;dirty=false;setLastCopied(null);renderInspections();renderMisc();
+}
+async function loadTeam(team) {
+  const snapshot=await shared.snapshot(team);
+  const copied=await shared.latestCopy(team);
+  applyCatalog(snapshot.catalog.data);
+  activeTeam=team;counts=snapshot.counts;resetTeamSelection();
+  const draft=teamDrafts.get(team);
+  if(draft){restoreLog(draft);dirty=true;setLastCopied(copied?.updated_at);}
+  else if(copied)restoreLog(copied);
+  render();renderInspections();
+  try{localStorage.setItem('jjya.last-team',team);}catch(_){}
+  cloudMessage(shared.teamsReady ? '' : '조별 집계 설정 SQL 적용 전입니다. 기존 기록은 갑조로 표시합니다.');
 }
 async function connect(user) {
-  const snapshot=await shared.snapshot();
-  applyCatalog(snapshot.catalog.data);counts=snapshot.counts;
-  currentUser=user;
-  render();renderInspections();
-  const copied = await shared.latestCopy();
-  if(copied) restoreLog(copied);
-  cloudMessage('');
+  await loadTeam(activeTeam);currentUser=user;
 }
+document.querySelectorAll('[data-team]').forEach(button=>button.addEventListener('click',()=>{
+  const team=button.dataset.team;if(team===activeTeam||busy||cloudWorking)return;
+  if(shared?.enabled){
+    if(pending&&dirty)teamDrafts.set(activeTeam,{id:activeLogId,version:activeLogVersion,body:output.value,state:captureState()});
+    else teamDrafts.delete(activeTeam);
+    cloudAction(async()=>loadTeam(team));
+  } else {
+    activeTeam=team;resetTeamSelection();
+    try{counts=JSON.parse(localStorage.getItem(countsStorageKey())||'{}');localStorage.setItem('jjya.last-team',team);}catch(_){counts={};}
+    render();renderInspections();updateTeamTabs();
+  }
+}));
+updateTeamTabs();
 workspace.addEventListener('input',()=>{if(shared?.enabled)dirty=true;});
 workspace.addEventListener('click',event=>{if(shared?.enabled&&event.target.closest('.item,.remove-selection,#misc-items button'))dirty=true;});
 window.addEventListener('beforeunload',event=>{if(shared?.enabled&&dirty){event.preventDefault();event.returnValue='';}});

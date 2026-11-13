@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 seed = (ROOT / 'tests/fixtures/legacy-seed.sql').read_text().split('$catalog$')[1]
 catalog = json.loads(seed)
 logs, counts = {}, {}
+team_counts = {'갑조':counts,'을조':{},'병조':{}}
 copy_snapshots = []
 catalog_version = 1
 server = ThreadingHTTPServer(('127.0.0.1', 0), partial(SimpleHTTPRequestHandler, directory=str(ROOT)))
@@ -35,6 +36,12 @@ def respond(route):
         result = copy_snapshots[-1:]
     elif path.startswith('/rest/v1/app_catalog'):
         result = [{'data':catalog,'version':catalog_version}]
+    elif path.startswith('/rest/v1/rpc/team_usage_counts'):
+        result=team_counts[body['p_team']]
+    elif path.startswith('/rest/v1/rpc/latest_team_copy'):
+        rows=[copy for copy in copy_snapshots if copy.get('team','갑조')==body['p_team']]
+        copy=rows[-1] if rows else None
+        result=dict(id=copy['log_id'],version=copy['log_version'],body=copy['body'],state=copy['state'],updated_at=copy['copied_at'],team=body['p_team']) if copy else None
     elif path.startswith('/rest/v1/rpc/shared_usage_counts'):
         result = counts
     elif path.startswith('/rest/v1/work_logs'):
@@ -44,19 +51,20 @@ def respond(route):
             result = [dict(id=log['id'],version=log['version'],updated_at=log['updated_at']) for log in reversed(list(logs.values()))]
     elif path.startswith('/rest/v1/rpc/save_work_log'):
         identifier = body['p_id']
+        team=body.get('p_team','갑조');target_counts=team_counts[team]
         existing = logs.get(identifier)
-        if body['p_expected_version'] != (existing['version'] if existing else 0):
+        if body['p_expected_version'] != (existing['version'] if existing else 0) or (existing and existing.get('team','갑조')!=team):
             status, result = 409, {'message':'VERSION_CONFLICT'}
         else:
             events = set(existing.get('events',[]) if existing else [])
             for key in body['p_keys'] or []:
                 if key not in events:
-                    counts[key] = counts.get(key,0)+1
+                    target_counts[key] = target_counts.get(key,0)+1
                     events.add(key)
-            logs[identifier] = dict(id=identifier,body=body['p_body'],state=body['p_state'],version=body['p_expected_version']+1,updated_at='2026-11-01T04:00:00Z',events=list(events))
+            logs[identifier] = dict(id=identifier,team=team,body=body['p_body'],state=body['p_state'],version=body['p_expected_version']+1,updated_at='2026-11-01T04:00:00Z',events=list(events))
             if body['p_keys'] is not None:
-                copy_snapshots.append(dict(log_id=identifier,log_version=logs[identifier]['version'],body=body['p_body'],state=body['p_state'],copied_at='2026-11-01T04:00:00Z'))
-            result = dict(version=logs[identifier]['version'],updated_at=logs[identifier]['updated_at'],counts=counts)
+                copy_snapshots.append(dict(team=team,log_id=identifier,log_version=logs[identifier]['version'],body=body['p_body'],state=body['p_state'],copied_at='2026-11-01T04:00:00Z'))
+            result = dict(version=logs[identifier]['version'],updated_at=logs[identifier]['updated_at'],counts=target_counts)
     elif path.startswith('/rest/v1/rpc/save_app_catalog'):
         if body['p_expected_version'] != catalog_version:
             status, result = 409, {'message':'VERSION_CONFLICT'}
@@ -128,17 +136,45 @@ with sync_playwright() as p:
     assert second.locator('#items button').first.inner_text()=='DB에서 수정한 위험예지훈련'
     second.set_viewport_size({'width':390,'height':844})
     assert second.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    # Common content with independent counters, sorting, copied state and browser preference.
+    def switch(team):
+        second.locator(f'[data-team="{team}"]').click()
+        second.wait_for_function("!document.querySelector('#workspace').disabled")
+        assert second.locator(f'[data-team="{team}"]').get_attribute('aria-pressed')=='true'
+    switch('을조')
+    assert second.locator('#output').input_value()==''
+    assert second.locator('#items tr td:last-child').first.inner_text()=='0회'
+    second.locator('#items button').nth(1).click();second.locator('#inspection-items button').nth(1).click()
+    second.locator('#copy').click();second.wait_for_function("!document.querySelector('#copy').disabled")
+    assert team_counts['을조']=={'일상|2':1,'inspection:0:1':1}
+    assert counts=={'일상|1':1,'inspection:0:0':1}
+    second.locator('#copy').click();second.wait_for_function("!document.querySelector('#copy').disabled")
+    assert team_counts['을조']['일상|2']==1
+    switch('갑조')
+    assert second.locator('#items button[aria-pressed=true]').inner_text()=='DB에서 수정한 위험예지훈련'
+    assert second.locator('#items tr td:last-child').first.inner_text()=='1회'
+    switch('병조')
+    assert second.locator('#output').input_value()==''
+    assert second.locator('#items tr td:last-child').first.inner_text()=='0회'
+    switch('을조')
+    assert second.locator('#items button[aria-pressed=true]').inner_text()=='분전반 쇄정'
+    second.reload();second.wait_for_function("!document.querySelector('#workspace').disabled")
+    assert second.locator('[data-team="을조"]').get_attribute('aria-pressed')=='true'
+    second.locator('#output').fill(second.locator('#output').input_value()+'\n을조 미복사 수정')
+    switch('갑조');switch('을조')
+    assert second.locator('#output').input_value().endswith('을조 미복사 수정')
     # Keep v1 database compatibility until the owner applies migration SQL.
     def legacy_api(route):
         path=route.request.url.split('.supabase.co',1)[1]
-        if '/rpc/get_app_catalog' in path or '/work_log_copies?' in path:
+        if '/rpc/get_app_catalog' in path or '/work_log_copies?' in path or '/rpc/team_usage_counts' in path:
             route.fulfill(status=404,content_type='application/json',body='{}')
         elif '/copy_events?' in path:
-            route.fulfill(content_type='application/json',body=json.dumps([{'log_id':copy_snapshots[-1]['log_id'],'copied_at':'2026-11-01T04:00:00Z'}]))
+            route.fulfill(content_type='application/json',body=json.dumps([{'log_id':next(copy for copy in reversed(copy_snapshots) if copy.get('team','갑조')=='갑조')['log_id'],'copied_at':'2026-11-01T04:00:00Z'}]))
         else:respond(route)
     legacy=browser.new_page();legacy.route('https://*.supabase.co/**',legacy_api)
     legacy.goto(url);legacy.wait_for_function("!document.querySelector('#workspace').disabled")
     assert legacy.locator('#items button[aria-pressed=true]').count()==1
+    assert legacy.locator('[data-team=을조]').is_disabled()
     legacy.close()
     failed=browser.new_page()
     failed.route('https://*.supabase.co/**',lambda route:route.fulfill(status=403,content_type='application/json',body='{}'))

@@ -79,3 +79,32 @@ test('legacy migration preserves edited content, counts/logs, stable IDs and rep
     await assert.rejects(db.query('select * from jjya_archive.app_catalog_legacy'),/permission denied/);
   }finally{await db.close();}
 });
+test('team migration assigns old counts to 갑조 and isolates counters/copies across all teams',async()=>{
+  const db=await database();
+  try{
+    await db.exec(await sql('schema.sql'));await db.exec(await sql('seed.sql'));await asUser(db);
+    const oldId='30000000-0000-0000-0000-000000000001';
+    await db.query('select public.save_work_log($1,0,$2,$3,$4)',[oldId,'기존 갑조 기록',{original:true},['일상|1','inspection:0:0']]);
+    await db.exec('reset role');await db.exec(await sql('migrate-teams.sql'));await asUser(db);
+    const counts=async team=>(await db.query('select public.team_usage_counts($1) c',[team])).rows[0].c;
+    assert.equal((await counts('갑조'))['일상|1'],1);
+    assert.deepEqual(await counts('을조'),{});assert.deepEqual(await counts('병조'),{});
+    const save=async(team,id,version=0)=> (await db.query('select public.save_work_log_for_team($1,$2,$3,$4,$5,$6) r',[team,id,version,`${team} 본문`,{selected:'one'},['일상|1','inspection:0:0']])).rows[0].r;
+    const eulId='30000000-0000-0000-0000-000000000002',byeongId='30000000-0000-0000-0000-000000000003';
+    await save('을조',eulId);await save('을조',eulId,1);await save('병조',byeongId);
+    for(const team of ['갑조','을조','병조'])assert.equal((await counts(team))['일상|1'],1);
+    assert.equal((await db.query('select public.shared_usage_counts() c')).rows[0].c['일상|1'],1);
+    const copied=(await db.query("select public.latest_team_copy('을조') c")).rows[0].c;
+    assert.equal(copied.id,eulId);assert.equal(copied.state.team,'을조');
+    assert.equal((await db.query("select public.latest_team_copy('갑조') c")).rows[0].c.id,oldId);
+    await assert.rejects(save('병조',eulId,2),/VERSION_CONFLICT/);
+    await assert.rejects(save('정조',eulId,2),/INVALID_TEAM/);
+    assert.equal((await db.query("select usage_count from public.team_risk_training_usage where team='을조' and id=1 and category='일상'")).rows[0].usage_count,1);
+    assert.equal((await db.query("select usage_count from public.team_inspection_item_usage where team='병조' and type_id=1 and item_no=1")).rows[0].usage_count,1);
+    await db.exec('reset role');await db.exec(await sql('migrate-teams.sql'));await asUser(db);
+    for(const team of ['갑조','을조','병조'])assert.equal((await counts(team))['일상|1'],1);
+    assert.equal((await db.query('select count(*)::integer n from public.work_log_copies')).rows[0].n,4);
+    await db.exec('reset role;set role anon');
+    await assert.rejects(db.query("select public.team_usage_counts('갑조')"),/permission denied/);
+  }finally{await db.close();}
+});

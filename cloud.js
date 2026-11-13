@@ -44,7 +44,10 @@
     return session.access_token;
   }
   async function db(path, options = {}) { return request('/rest/v1/' + path, {...options, token:await token()}); }
+  let teamsReady = false;
+  const validTeam = team => { if(!['갑조','을조','병조'].includes(team)) throw new Error('INVALID_TEAM'); };
   window.SharedStore = {
+    get teamsReady() { return teamsReady; },
     enabled,
     async start() {
       if (session) {
@@ -56,10 +59,10 @@
       return value.user;
     },
     async user() { if (!session) return null; return request('/auth/v1/user', {token:await token()}); },
-    async snapshot() {
+    async snapshot(team = '갑조') {
       const [catalog, counts] = await Promise.all([
         this.readCatalog(),
-        db('rpc/shared_usage_counts', {method:'POST',body:{}})
+        this.counts(team)
       ]);
       return {catalog,counts};
     },
@@ -73,7 +76,10 @@
         return rows[0];
       }
     },
-    async latestCopy() {
+    async latestCopy(team = '갑조') {
+      validTeam(team);
+      if(teamsReady) return db('rpc/latest_team_copy',{method:'POST',body:{p_team:team}});
+      if(team!=='갑조') throw new Error('TEAM_MIGRATION_REQUIRED');
       try {
         const rows=await db('work_log_copies?select=log_id,log_version,body,state,copied_at&order=copied_at.desc,id.desc&limit=1');
         if(!rows.length)return null;
@@ -86,13 +92,25 @@
         return events.length ? this.load(events[0].log_id) : null;
       }
     },
-    async counts() { return db('rpc/shared_usage_counts',{method:'POST',body:{}}); },
+    async counts(team = '갑조') {
+      validTeam(team);
+      try { const result = await db('rpc/team_usage_counts',{method:'POST',body:{p_team:team}});teamsReady=true;return result; }
+      catch(error) {
+        if(error.status!==404)throw error;
+        teamsReady=false;
+        if(team!=='갑조')throw new Error('TEAM_MIGRATION_REQUIRED');
+        return db('rpc/shared_usage_counts',{method:'POST',body:{}});
+      }
+    },
     async load(id) {
       const rows = await db(`work_logs?select=*&id=eq.${encodeURIComponent(id)}`);
       if (!rows.length) throw new Error('저장된 일지가 없습니다.');
       return rows[0];
     },
-    async save({id,version,body,state,keys = null}) {
+    async save({id,version,body,state,keys = null,team = '갑조'}) {
+      validTeam(team);
+      if(teamsReady) return db('rpc/save_work_log_for_team',{method:'POST',body:{p_team:team,p_id:id,p_expected_version:version,p_body:body,p_state:state,p_keys:keys}});
+      if(team!=='갑조')throw new Error('TEAM_MIGRATION_REQUIRED');
       return db('rpc/save_work_log',{method:'POST',body:{p_id:id,p_expected_version:version,p_body:body,p_state:state,p_keys:keys}});
     }
   };
