@@ -59,10 +59,16 @@ for cell,src in zip(cells,incoming):
     for line in cell.findall('.//{%s}linesegarray'%HP):line.getparent().remove(line)
 # Copy static labels only; never names, dates, work contents, signatures or actions.
 for index in [1,2,5,7,8,9,12,13,14,15,16,19,22,25,26,27,28,29,33,34,39,44]:
-    texts=cells[index].findall('.//{%s}t'%HP)
+    sublist=cells[index].find('{%s}subList'%HP)
+    paragraphs=sublist.findall('{%s}p'%HP)
+    texts=paragraphs[0].findall('.//{%s}t'%HP) if paragraphs else []
     if texts:
         texts[0].text=''.join(incoming[index].itertext()).strip()
         for t in texts[1:]:t.text=''
+        for paragraph in paragraphs[1:]:sublist.remove(paragraph)
+# Empty approval/signature area: one empty paragraph is enough.
+approval=cells[3].find('{%s}subList'%HP)
+for paragraph in approval.findall('{%s}p'%HP)[1:]:approval.remove(paragraph)
 table=section.find('.//{%s}tbl'%HP);control=source.find('.//TableControl')
 size=table.find('{%s}sz'%HP)
 for k in ['width','height']:size.set(k,control.get(k))

@@ -96,6 +96,8 @@ with sync_playwright() as p:
         assert all(''.join(p.itertext()).strip() for p in cells[6].findall('.//{%s}p'%HP))
         assert len(cells[10].findall('.//{%s}p'%HP))==3
         assert len(cells[11].findall('.//{%s}p'%HP))==3
+        assert all(len(cells[i].findall('.//{%s}p'%HP))==1 for i in [1,2,3,25,29,33])
+        assert all(''.join(p.itertext()).strip() for i in [1,2,25,29,33] for p in cells[i].findall('.//{%s}p'%HP))
         assert all(cell.find('{%s}subList'%HP).get('vertAlign')=='CENTER' for cell in cells)
         assert all(p.get('paraPrIDRef')=='33' for p in cells[6].findall('.//{%s}p'%HP))
         assert all(p.get('paraPrIDRef')=='34' for i in [10,11] for p in cells[i].findall('.//{%s}p'%HP))
