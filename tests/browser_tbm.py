@@ -17,26 +17,36 @@ with sync_playwright() as p:
     errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
     page.route('**/supabase-config.js',lambda route:route.fulfill(content_type='application/javascript',body='window.SUPABASE_CONFIG={enabled:false};'))
     page.goto(f'http://127.0.0.1:{server.server_port}/index.html')
-    page.locator('#generator-toggle').click()
+    page.locator('#generator-tab-tbm').click()
     assert page.locator('#tbm-generator').is_visible() and not page.locator('#daily-generator').is_visible()
     page.locator('#tbm-date').fill('2026-11-14')
     page.locator('#tbm-area').fill('시험 변전소 <A&B>')
     page.locator('#tbm-leader').fill('테스트교관')
     page.locator('#tbm-railway-manager').fill('시험관리자')
     page.locator('#tbm-attendee-0').fill('시험참석자')
-    page.select_option('#tbm-fitness-0','적합')
-    page.select_option('#tbm-check-0','적합')
-    page.select_option('#tbm-check-1','부적합')
+    page.locator('[data-result-target="tbm-fitness-0"][value="적합"]').check()
+    page.locator('[data-result-target="tbm-check-0"][value="적합"]').check()
+    page.locator('[data-result-target="tbm-check-1"][value="부적합"]').check()
     page.locator('#tbm-action-1').fill('조치 <완료> & 확인')
+    page.locator('#tbm-risk-picker summary').click()
     page.locator('[data-risk-id="8"][type=checkbox]').check()
     page.locator('[data-risk-id="9"][type=checkbox]').check()
     page.locator('[data-risk-id="1"][type=checkbox]').click()
     assert page.locator('#tbm-risk-list input:checked').count()==2
+    page.locator('#tbm-risk-picker summary').click()
     page.locator('textarea[data-risk-id="8"][data-risk-field=rules]').fill('수정 안전대책 <절연> & 보호구')
     page.select_option('#tbm-extra-education','소화설비 교육')
-    page.locator('#tbm-refresh-preview').click()
-    assert '시험 변전소 <A&B>' in page.locator('#tbm-preview').inner_text()
-    assert '수정 안전대책 <절연> & 보호구' in page.locator('#tbm-preview').inner_text()
+    assert page.locator('#tbm-cell-6 #tbm-area').input_value()=='시험 변전소 <A&B>'
+    assert '수정 안전대책 <절연> & 보호구' in page.locator('#tbm-plan-risk-summary').inner_text()
+    assert page.locator('#tbm-document-table td').count()==49
+    assert page.evaluate("TBM_FORM_LAYOUT.cells.every(cell=>{const el=document.querySelector('#tbm-cell-'+cell.index);return el.rowSpan===cell.rowSpan&&el.colSpan===cell.colSpan;})")
+    assert page.locator('#generator-tab-tbm').get_attribute('aria-pressed')=='true'
+    assert page.locator('#generator-tab-daily').get_attribute('aria-pressed')=='false'
+    assert page.locator('#tbm-cell-10 textarea').count()==2
+    assert page.locator('#tbm-cell-11 textarea').count()==2
+    page.select_option('#tbm-zoom','0.7')
+    assert abs(page.locator('#tbm-paper').bounding_box()['width']-794*0.7)<2
+    page.select_option('#tbm-zoom','1')
     page.screenshot(path='/tmp/tbm-generator-desktop.png',full_page=True)
     with page.expect_download() as info:page.locator('#tbm-download').click()
     download=info.value;assert download.suggested_filename=='작업 전 안전교육(TBM)(2026.11.14_야간).hwpx'
@@ -76,9 +86,9 @@ with sync_playwright() as p:
     page.set_viewport_size({'width':390,'height':844})
     assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
     page.screenshot(path='/tmp/tbm-generator-mobile.png',full_page=True)
-    page.locator('#generator-toggle').click()
+    page.locator('#generator-tab-daily').click()
     assert page.locator('#daily-generator').is_visible()
-    page.locator('#generator-toggle').click()
+    page.locator('#generator-tab-tbm').click()
     assert page.locator('#tbm-leader').input_value()=='테스트교관'
     assert not errors,errors
     browser.close()

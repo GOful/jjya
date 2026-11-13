@@ -40,3 +40,7 @@ with ZipFile(destination,'w',compression=ZIP_STORED) as output:
     for name in ['mimetype',*[name for name in files if name!='mimetype']]:
         output.writestr(name,files[name])
 print(destination)
+
+# Regenerate the browser document grid from the same clean form.
+import runpy
+runpy.run_path(str(Path(__file__).with_name("generate_tbm_layout.py")))
