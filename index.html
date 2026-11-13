@@ -208,6 +208,7 @@ const MISC_TASKS = [
 ];
 const OFFICE_TASK_INDEX = 6;
 const DEFAULT_OFFICE_TASK = ['서무업무', '* 분소행정업무처리'];
+const miscDisplayOrder = () => [OFFICE_TASK_INDEX, ...MISC_TASKS.map((_,i) => i).filter(i => i !== OFFICE_TASK_INDEX)];
 let miscSelections = new Set(), insertedMisc = '', insertedOffice = '';
 const miscStatus = document.querySelector('#misc-status');
 function miscText(selection = miscSelections) {
@@ -243,7 +244,8 @@ function updateMisc(selection) {
 }
 function renderMisc() {
   const selected = document.querySelector('#misc-selected'); selected.replaceChildren();
-  MISC_TASKS.forEach(([title], i) => {
+  miscDisplayOrder().forEach(i => {
+    const [title] = MISC_TASKS[i];
     const button = document.querySelector(`#misc-select-${i}`);
     button.setAttribute('aria-pressed', String(miscSelections.has(i)));
     button.classList.toggle('selected', miscSelections.has(i));
@@ -257,9 +259,10 @@ function renderMisc() {
 }
 function buildMisc() {
  document.querySelector('#misc-items').replaceChildren();
- MISC_TASKS.forEach(([title],i) => {
+ miscDisplayOrder().forEach((i,position) => {
+  const [title] = MISC_TASKS[i];
   const button = document.createElement('button'); button.type = 'button'; button.id = `misc-select-${i}`;
-  const number = document.createElement('span'); number.className = 'number'; number.textContent = i+1;
+  const number = document.createElement('span'); number.className = 'number'; number.textContent = position+1;
   const name = document.createElement('span'); name.textContent = title;
   button.append(number,name);
   button.addEventListener('click', () => { const next = new Set(miscSelections); next.has(i) ? next.delete(i) : next.add(i); updateMisc(next); });

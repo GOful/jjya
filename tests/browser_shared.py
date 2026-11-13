@@ -78,6 +78,8 @@ with sync_playwright() as p:
     first.goto(url);first.wait_for_function("!document.querySelector('#workspace').disabled")
     assert first.locator('#shared-tools,#save-log,#catalog-dialog,#cloud-mode').count()==0
     assert first.locator('#last-copied').inner_text()==''
+    assert first.locator('#misc-items button span:last-child').all_text_contents()==['서무업무','전력량 검침','안전점검의 날','소화기 점검','음주측정기 점검','소방점검 입회','바닥왁스 작업 입회']
+    assert first.locator('#misc-items .number').all_text_contents()==[str(i) for i in range(1,8)]
     first.locator('#misc-select-6').click()
     first.locator('#items button').first.click()
     first.locator('#inspection-items button').first.click()
