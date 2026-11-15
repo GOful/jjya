@@ -62,7 +62,7 @@
   <label class="document-line">- 작업순서: <input id="tbm-order" aria-label="작업순서" value="AC반 → DC반 → 기타(RTU 및 충전기반)" required maxlength="120"></label>
   <div class="document-methods"><span>- 작업방법:</span><div class="document-fixed-methods">${fixedMethods.map(method=>`<div>ㅇ ${method}</div>`).join('')}</div></div>
   <div>- 작업원별 임무 및 작업장 이동방법: 육안 점검 실시, 열차를 통한 이동</div>
-  <div class="document-risk-heading"><span>- 위험요인 안전조치 및 교육:</span><details id="tbm-risk-picker" class="document-risk-picker"><summary>내용 선택</summary><div class="document-risk-menu"><div id="tbm-risk-editors"></div></div></details></div><div id="tbm-plan-risk-summary"></div>`);
+  <div class="document-risk-heading"><span>- 위험요인 안전조치 및 교육:</span></div><div id="tbm-risk-editors"></div>`);
   put(8,'<span>유해·위험요인</span>');
   put(9,'<span>안전대책</span>');
   put(10,'');
@@ -98,13 +98,19 @@
   }
   defaultRiskSelections.forEach((selection,index)=>{
     const editor=document.createElement('section');editor.className='tbm-risk-editor';editor.dataset.index=index;
+    const picker=document.createElement('details');picker.className='document-risk-picker';
+    const summary=document.createElement('summary');summary.className='tbm-risk-selected-summary';
+    const menu=document.createElement('div');menu.className='document-risk-menu';
+    const controls=document.createElement('div');controls.className='tbm-risk-controls';
     const title=document.createElement('strong');title.textContent=`선택 ${index+1}`;
     const select=document.createElement('select');select.className='tbm-risk-select';select.setAttribute('aria-label',`유해·위험요인 ${index+1}`);
     const blank=document.createElement('option');blank.value='';blank.textContent='선택 안 함';select.append(blank);
     riskCatalog.forEach(item=>{const option=document.createElement('option');option.value=item.risk;option.textContent=item.risk;select.append(option);});
     select.value=selection.risk;
     const activities=document.createElement('div');activities.className='tbm-activity-list';
-    editor.append(title,select,activities);riskEditors.append(editor);renderActivityChoices(editor,selection.activities);
+    const ruleSummary=document.createElement('div');ruleSummary.className='tbm-risk-rule-summary';
+    controls.append(title,select,activities);menu.append(controls);picker.append(summary,menu);editor.append(picker,ruleSummary);
+    riskEditors.append(editor);renderActivityChoices(editor,selection.activities);
     select.addEventListener('change',()=>{renderActivityChoices(editor);syncRiskOptionAvailability();preview();});
   });
   function syncRiskOptionAvailability(){
@@ -129,9 +135,12 @@
     return [...merged].map(([risk,activities])=>({risk,activities,rules:activities.join(', ')}));
   }
   function renderSelectedRisks(risks){
-    const summary=[];
-    for(const item of risks){summary.push(`ㅇ ${item.risk}`);summary.push(`   - ${item.rules||'관리활동을 선택하세요'}`);}
-    $('tbm-plan-risk-summary').textContent=summary.join('\n');
+    for(const editor of riskEditors.querySelectorAll('.tbm-risk-editor')){
+      const risk=editor.querySelector('.tbm-risk-select').value;
+      const rules=[...editor.querySelectorAll('.tbm-activity-list input:checked')].map(input=>input.value).join(', ');
+      editor.querySelector('.tbm-risk-selected-summary').textContent=risk||'유해·위험요인 선택';
+      editor.querySelector('.tbm-risk-rule-summary').textContent=risk?`- ${rules||'관리활동을 선택하세요'}`:'';
+    }
     const riskCell=$('tbm-cell-10'),ruleCell=$('tbm-cell-11');riskCell.replaceChildren();ruleCell.replaceChildren();
     risks.forEach((item,index)=>{
       const risk=document.createElement('div');risk.textContent=` ${['①','②'][index]} ${item.risk}`;riskCell.append(risk);
@@ -200,7 +209,7 @@
     if(data.risks.some(item=>!item.activities.length)){$('tbm-status').textContent='선택한 유해·위험요인의 관리활동을 1개 이상 선택하세요.';return;}
     downloading=true;$('tbm-controls').disabled=true;$('tbm-download').disabled=true;$('tbm-status').textContent='HWPX 생성 중…';
     try{
-      if(!templatePromise)templatePromise=fetch('assets/tbm-template.hwpx?v=20261115-risk-picker4',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('양식을 불러오지 못했습니다.');return response.arrayBuffer();}).catch(error=>{templatePromise=null;throw error;});
+      if(!templatePromise)templatePromise=fetch('assets/tbm-template.hwpx?v=20261115-risk-picker5',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('양식을 불러오지 못했습니다.');return response.arrayBuffer();}).catch(error=>{templatePromise=null;throw error;});
       const bytes=window.HwpxBuilder.fill(await templatePromise,data);
       const blob=new Blob([bytes],{type:'application/hwp+zip'}),url=URL.createObjectURL(blob),link=document.createElement('a');
       link.hidden=true;link.href=url;link.download=`작업 전 안전교육(TBM)(${data.date.replaceAll('-','.')}_${data.shift}).hwpx`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);

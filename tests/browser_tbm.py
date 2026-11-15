@@ -48,27 +48,30 @@ with sync_playwright() as p:
     assert page.locator('.tbm-risk-editor').count()==2
     assert all(page.locator('.tbm-risk-select').nth(i).locator('option').count()==16 for i in range(2))
     assert page.locator('.tbm-risk-select').first.evaluate("el=>new Set([...el.options].map(o=>o.value)).size===el.options.length")
-    risk_summary=page.locator('#tbm-risk-picker>summary')
+    risk_summaries=page.locator('.tbm-risk-editor .document-risk-picker>summary')
+    assert risk_summaries.count()==2
+    assert risk_summaries.all_inner_texts()==['원방 및 수동 오조작에 의한 급전','배전반내 공간 협소 및 돌출부로 인한 외상']
+    risk_summary=risk_summaries.first
     worker_summary=page.locator('#tbm-worker-picker>summary')
     assert risk_summary.evaluate("el=>getComputedStyle(el).display")=='list-item'
     assert risk_summary.evaluate("el=>getComputedStyle(el).color")==worker_summary.evaluate("el=>getComputedStyle(el).color")
     assert risk_summary.evaluate("el=>getComputedStyle(el).borderBottomStyle")=='dotted'
-    page.locator('#tbm-risk-picker>summary').click()
     first_editor=page.locator('.tbm-risk-editor').nth(0)
     second_editor=page.locator('.tbm-risk-editor').nth(1)
     assert second_editor.locator('option[value="원방 및 수동 오조작에 의한 급전"]').is_disabled()
     assert first_editor.locator('option[value="배전반내 공간 협소 및 돌출부로 인한 외상"]').is_disabled()
+    second_editor.locator('.document-risk-picker>summary').click()
     second_editor.locator('.tbm-risk-select').select_option('교육 및 훈련의 미흡')
     assert first_editor.locator('option[value="교육 및 훈련의 미흡"]').is_disabled()
     assert not first_editor.locator('option[value="배전반내 공간 협소 및 돌출부로 인한 외상"]').is_disabled()
     second_editor.locator('.tbm-activity-list input').nth(0).check()
     second_editor.locator('.tbm-activity-list input').nth(1).check()
     assert second_editor.locator('.tbm-activity-list input').evaluate_all("els=>new Set(els.map(el=>el.value)).size===els.length")
-    page.locator('#tbm-risk-picker>summary').click()
-    assert '원방 및 수동 오조작에 의한 급전' in page.locator('#tbm-plan-risk-summary').inner_text()
-    assert '교육 및 훈련의 미흡' in page.locator('#tbm-plan-risk-summary').inner_text()
-    assert '작업 전 TBM 실시, 주기적 안전교육' in page.locator('#tbm-plan-risk-summary').inner_text()
-    assert '소화설비 교육' not in page.locator('#tbm-plan-risk-summary').inner_text()
+    second_editor.locator('.document-risk-picker>summary').click()
+    assert risk_summaries.all_inner_texts()==['원방 및 수동 오조작에 의한 급전','교육 및 훈련의 미흡']
+    assert '원방 및 수동 오조작에 의한 급전' in page.locator('#tbm-risk-editors').inner_text()
+    assert '작업 전 TBM 실시, 주기적 안전교육' in page.locator('#tbm-risk-editors').inner_text()
+    assert '소화설비 교육' not in page.locator('#tbm-risk-editors').inner_text()
     assert page.locator('[data-result-target]').count()==0
     assert page.locator('.document-manual').count()==7
     assert page.locator('#tbm-document-table td').count()==49
