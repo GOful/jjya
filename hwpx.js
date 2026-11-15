@@ -74,6 +74,12 @@
     const labelChar=labelStyle('charPr','14');labelChar.setAttribute('height','1000');
     const instructorChar=labelStyle('charPr','14');instructorChar.setAttribute('height','1100');
     const riskChar=labelStyle('charPr','17');riskChar.setAttribute('height','1100');
+    // Keep long risk/countermeasure sentences on one line without reducing
+    // their 11 pt font size. A small width/spacing adjustment matches
+    // Hangul's character-width and letter-spacing controls.
+    const riskBodyChar=labelStyle('charPr',riskChar.getAttribute('id'));
+    for(const ratio of riskBodyChar.getElementsByTagNameNS(HH,'ratio'))for(const language of ['hangul','latin','hanja','japanese','other','symbol','user'])ratio.setAttribute(language,'90');
+    for(const spacing of riskBodyChar.getElementsByTagNameNS(HH,'spacing'))for(const language of ['hangul','latin','hanja','japanese','other','symbol','user'])spacing.setAttribute(language,'-2');
     const signatureTitleChar=labelStyle('charPr','17');signatureTitleChar.setAttribute('height','1200');
     const planChar=labelStyle('charPr','15');planChar.setAttribute('height','1100');
     const labelPara=labelStyle('paraPr','23');labelPara.setAttribute('snapToGrid','0');
@@ -122,8 +128,8 @@
     paragraphs(6,values.planLines,planChar.getAttribute('id'),planPara.getAttribute('id'));
     paragraphs(8,['유해·위험요인'],riskChar.getAttribute('id'),riskTitlePara.getAttribute('id'));
     paragraphs(9,['안전대책'],riskChar.getAttribute('id'),riskTitlePara.getAttribute('id'));
-    paragraphs(10,values.risks.map((risk,i)=>` ${['①','②'][i]} ${risk.risk}`).concat(' ※ 전체 유해‧위험요인은 위험성평가표 참고'),riskChar.getAttribute('id'),riskBodyPara.getAttribute('id'));
-    paragraphs(11,values.riskRules.map((rule,i)=>` ${['①','②','③'][i]} ${rule}`),riskChar.getAttribute('id'),riskBodyPara.getAttribute('id'));
+    paragraphs(10,values.risks.map((risk,i)=>` ${['①','②'][i]} ${risk.risk}`).concat(' ※ 전체 유해‧위험요인은 위험성평가표 참고'),riskBodyChar.getAttribute('id'),riskBodyPara.getAttribute('id'));
+    paragraphs(11,values.riskRules.map((rule,i)=>` ${['①','②','③'][i]} ${rule}`),riskBodyChar.getAttribute('id'),riskBodyPara.getAttribute('id'));
     const checkbox=value=>value==='적합'?'☑ 적합　□ 부적합':value==='부적합'?'□ 적합　☑ 부적합':'□ 적합　□ 부적합';
     values.checks.forEach((check,i)=>{
       paragraphs([16,19,22][i],[` ${check.label}`]);

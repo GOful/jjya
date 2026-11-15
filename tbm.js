@@ -189,7 +189,7 @@
     if(data.risks.some(item=>!item.activities.length)){$('tbm-status').textContent='선택한 유해·위험요인의 관리활동을 1개 이상 선택하세요.';return;}
     downloading=true;$('tbm-controls').disabled=true;$('tbm-download').disabled=true;$('tbm-status').textContent='HWPX 생성 중…';
     try{
-      if(!templatePromise)templatePromise=fetch('assets/tbm-template.hwpx?v=20261115-risk-picker',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('양식을 불러오지 못했습니다.');return response.arrayBuffer();}).catch(error=>{templatePromise=null;throw error;});
+      if(!templatePromise)templatePromise=fetch('assets/tbm-template.hwpx?v=20261115-risk-picker3',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('양식을 불러오지 못했습니다.');return response.arrayBuffer();}).catch(error=>{templatePromise=null;throw error;});
       const bytes=window.HwpxBuilder.fill(await templatePromise,data);
       const blob=new Blob([bytes],{type:'application/hwp+zip'}),url=URL.createObjectURL(blob),link=document.createElement('a');
       link.hidden=true;link.href=url;link.download=`작업 전 안전교육(TBM)(${data.date.replaceAll('-','.')}_${data.shift}).hwpx`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);

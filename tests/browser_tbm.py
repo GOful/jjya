@@ -48,6 +48,11 @@ with sync_playwright() as p:
     assert page.locator('.tbm-risk-editor').count()==2
     assert all(page.locator('.tbm-risk-select').nth(i).locator('option').count()==16 for i in range(2))
     assert page.locator('.tbm-risk-select').first.evaluate("el=>new Set([...el.options].map(o=>o.value)).size===el.options.length")
+    risk_summary=page.locator('#tbm-risk-picker>summary')
+    worker_summary=page.locator('#tbm-worker-picker>summary')
+    assert risk_summary.evaluate("el=>getComputedStyle(el).display")=='list-item'
+    assert risk_summary.evaluate("el=>getComputedStyle(el).color")==worker_summary.evaluate("el=>getComputedStyle(el).color")
+    assert risk_summary.evaluate("el=>getComputedStyle(el).borderBottomStyle")=='dotted'
     page.locator('#tbm-risk-picker>summary').click()
     second_editor=page.locator('.tbm-risk-editor').nth(1)
     second_editor.locator('.tbm-risk-select').select_option('교육 및 훈련의 미흡')
@@ -205,6 +210,11 @@ with sync_playwright() as p:
             char=header.xpath('//*[local-name()="charPr"][@id="%s"]'%run.get('charPrIDRef'))[0]
             style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%paragraph.get('paraPrIDRef'))[0]
             assert char.get('height')=='1100'
+            ratio=char.xpath('./*[local-name()="ratio"]')[0]
+            spacing=char.xpath('./*[local-name()="spacing"]')[0]
+            expected_ratio,expected_spacing=('90','-2') if index in [10,11] else ('95','0')
+            assert all(value==expected_ratio for value in ratio.attrib.values())
+            assert all(value==expected_spacing for value in spacing.attrib.values())
             assert all(n.get('value')=='150' for n in style.xpath('.//*[local-name()="lineSpacing"]'))
         for paragraph in cells[6].findall('.//{%s}p'%HP):
             run=paragraph.find('{%s}run'%HP)
