@@ -22,6 +22,8 @@ with sync_playwright() as p:
     # Date and day/night presets are set when the page opens; users can still switch shifts.
     assert page.locator('#tbm-date').input_value()
     page.select_option('#tbm-shift','야간')
+    assert page.locator('#tbm-shift').evaluate("el=>el.getBoundingClientRect().width>=62")
+    assert page.locator('#tbm-shift option').all_inner_texts()==['야간','주간']
     assert page.locator('#tbm-education-start').input_value()=='18:10'
     assert page.locator('#tbm-education-end').input_value()=='18:30'
     assert page.locator('#tbm-start').input_value()=='18:30'
@@ -152,13 +154,14 @@ with sync_playwright() as p:
             '               ㅇ 원격소장치 표시등 점등상태 및 통신상태 점검'
         ]
         assert list(plan_paragraphs[10].itertext())==[
-            '               ㅇ 원방 및 수동 오조작에 의한 급전',
-            '                  - 전기안전수칙 준수, 전력계통 숙지'
+            '     ㅇ 원방 및 수동 오조작에 의한 급전',
+            '        - 전기안전수칙 준수, 전력계통 숙지'
         ]
         assert list(plan_paragraphs[11].itertext())==[
-            '               ㅇ 배전반 내 공간 협소 및 돌출부로 인한 외상',
-            '                  - 전방주시 철저, 안전모, 안전화 착용'
+            '     ㅇ 배전반 내 공간 협소 및 돌출부로 인한 외상',
+            '        - 전방주시 철저, 안전모, 안전화 착용'
         ]
+        assert plan_texts[12]=='     ㅇ 소화설비 교육'
         assert cells[6].get('hasMargin')=='1'
         assert cells[6].find('{%s}cellMargin'%HP).attrib=={side:'567' for side in ['left','right','top','bottom']}
         assert len(cells[6].findall('.//{%s}lineBreak'%HP))==2
