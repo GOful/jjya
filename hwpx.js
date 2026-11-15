@@ -63,8 +63,7 @@
       }
       style.setAttribute('snapToGrid','0');
     }
-    // Dedicated narrow-column style: six Korean glyphs at 9pt fit 56.78pt.
-    // Do not shrink shared styles used by the other labels and input cells.
+    // Dedicated styles avoid changing shared styles used by other labels/cells.
     function labelStyle(kind,sourceId){
       const styles=[...header.getElementsByTagNameNS(HH,kind)];
       const source=styles.find(style=>style.getAttribute('id')===sourceId);
@@ -72,9 +71,18 @@
       copy.setAttribute('id',id);source.parentNode.append(copy);
       source.parentNode.setAttribute('itemCnt',String(styles.length+1));return copy;
     }
-    const labelChar=labelStyle('charPr','14');labelChar.setAttribute('height','900');
+    const labelChar=labelStyle('charPr','14');labelChar.setAttribute('height','1000');
+    const instructorChar=labelStyle('charPr','14');instructorChar.setAttribute('height','1100');
+    const riskChar=labelStyle('charPr','17');riskChar.setAttribute('height','1100');
     const labelPara=labelStyle('paraPr','23');labelPara.setAttribute('snapToGrid','0');
     for(const spacing of labelPara.getElementsByTagNameNS(HH,'lineSpacing'))spacing.setAttribute('value','100');
+    const riskTitlePara=labelStyle('paraPr','24');riskTitlePara.setAttribute('snapToGrid','0');
+    const riskBodyPara=labelStyle('paraPr','34');riskBodyPara.setAttribute('snapToGrid','0');
+    for(const style of [riskTitlePara,riskBodyPara]){
+      for(const spacing of style.getElementsByTagNameNS(HH,'lineSpacing')){
+        spacing.setAttribute('type','PERCENT');spacing.setAttribute('value','150');
+      }
+    }
     // Trim only the risk/countermeasure row by 2 mm (about 566 HWP units),
     // matching the small manual row-height adjustment in Hangul.
     const riskRowTrim=566;
@@ -103,13 +111,16 @@
     }
     paragraphs(0,[`□ 소    속 : ${values.department}`,`□ 교육일시 : ${values.educationDate}`,`□ 교육장소 : ${values.location}`],9);
     paragraphs(6,values.planLines,15,33);
-    paragraphs(10,values.risks.map((risk,i)=>`${['①','②'][i]} ${risk.risk}`).concat('※ 전체 유해‧위험요인은 위험성평가표 참고'),17,34);
-    paragraphs(11,values.riskRules.map((rule,i)=>`${['①','②','③'][i]} ${rule}`),17,34);
+    paragraphs(8,['유해·위험요인'],riskChar.getAttribute('id'),riskTitlePara.getAttribute('id'));
+    paragraphs(9,['안전대책'],riskChar.getAttribute('id'),riskTitlePara.getAttribute('id'));
+    paragraphs(10,values.risks.map((risk,i)=>`　${['①','②'][i]} ${risk.risk}`).concat('　※ 전체 유해‧위험요인은 위험성평가표 참고'),riskChar.getAttribute('id'),riskBodyPara.getAttribute('id'));
+    paragraphs(11,values.riskRules.map((rule,i)=>`　${['①','②','③'][i]} ${rule}`),riskChar.getAttribute('id'),riskBodyPara.getAttribute('id'));
     const checkbox=value=>value==='적합'?'☑ 적합　□ 부적합':value==='부적합'?'□ 적합　☑ 부적합':'□ 적합　□ 부적합';
-    values.checks.forEach((check,i)=>{paragraphs([17,20,23][i],[checkbox(check.result)],20);paragraphs([18,21,24][i],[check.action],20);});
+    values.checks.forEach((check,i)=>{paragraphs([17,20,23][i],[`　${checkbox(check.result)}`],20);paragraphs([18,21,24][i],[`　${check.action}`],20);});
     // Explicit breaks match the compact reference; automatic Korean wrapping
     // previously turned '(교육교관)' into two lines and enlarged the row.
-    paragraphs(25,['확 인 자\n(교육교관)'],labelChar.getAttribute('id'),labelPara.getAttribute('id'));
+    paragraphs(25,['확 인 자\n(교육교관)'],instructorChar.getAttribute('id'),labelPara.getAttribute('id'));
+    paragraphs(26,['작업\n책임자'],instructorChar.getAttribute('id'),labelPara.getAttribute('id'));
     paragraphs(33,['교육참석자,\n작업적합성\n평가\n(업무일지\n참조)'],labelChar.getAttribute('id'),labelPara.getAttribute('id'));
     paragraphs(31,[values.leader],25);paragraphs(30,[values.railwayManager],25);
     values.attendees.forEach((person,i)=>{paragraphs(35+i,[person.name],25);paragraphs(45+i,[person.name?checkbox(person.fitness):'□ 적합　□ 부적합'],20);});

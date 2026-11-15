@@ -78,6 +78,7 @@ with sync_playwright() as p:
         assert '소화설비 교육' in text(6)
         assert '③ 전력계통 숙지' in text(11)
         assert all('☑' not in text(i) and '□ 적합' in text(i) for i in [17,20,23,45,46,47,48])
+        assert all(text(i).startswith('　') for i in [17,18,20,21,23,24])
         assert text(31)=='김승오' and not text(30).strip()
         assert text(35)=='김범석' and '□ 적합' in text(45)
         for i in [3,32,40,41,42,43]:assert not text(i).strip(),f'Signature unexpectedly filled: {i}'
@@ -104,24 +105,29 @@ with sync_playwright() as p:
         assert all(''.join(p.itertext()).strip() for i in [1,2,25,29,33] for p in cells[i].findall('.//{%s}p'%HP))
         assert all(cell.find('{%s}subList'%HP).get('vertAlign')=='CENTER' for cell in cells)
         assert all(p.get('paraPrIDRef')=='33' for p in cells[6].findall('.//{%s}p'%HP))
-        assert all(p.get('paraPrIDRef')=='34' for i in [10,11] for p in cells[i].findall('.//{%s}p'%HP))
         header=E.fromstring(z.read('Contents/header.xml'))
         for style_id,spacing in [('22','120'),('33','120'),('34','120')]:
             style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%style_id)[0]
             if style_id!='22':assert style.xpath('./*[local-name()="align"]')[0].get('horizontal')=='LEFT'
             assert all(node.get('value')==spacing for node in style.xpath('.//*[local-name()="lineSpacing"]'))
-        for index,lines in [(25,['확 인 자','(교육교관)']),(33,['교육참석자,','작업적합성','평가','(업무일지','참조)'])]:
+        for index,lines,height in [(25,['확 인 자','(교육교관)'],'1100'),(26,['작업','책임자'],'1100'),(33,['교육참석자,','작업적합성','평가','(업무일지','참조)'],'1000')]:
             run=cells[index].find('.//{%s}run'%HP)
             assert list(run.itertext())==lines
             char=header.xpath('//*[local-name()="charPr"][@id="%s"]'%run.get('charPrIDRef'))[0]
-            assert char.get('height')=='900'
+            assert char.get('height')==height
             paragraph=cells[index].find('.//{%s}p'%HP)
             style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%paragraph.get('paraPrIDRef'))[0]
             assert style.get('snapToGrid')=='0'
             assert all(n.get('value')=='100' for n in style.xpath('.//*[local-name()="lineSpacing"]'))
             # Explicit lines fit both the column width and the existing row height.
-            assert max(len(line) for line in lines)*900 <= 5960-282
-            assert len(lines)*900 <= int(cells[index].find('{%s}cellSz'%HP).get('height'))-282
+        for index in [8,9,10,11]:
+            paragraph=cells[index].find('.//{%s}p'%HP)
+            run=paragraph.find('{%s}run'%HP)
+            char=header.xpath('//*[local-name()="charPr"][@id="%s"]'%run.get('charPrIDRef'))[0]
+            style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%paragraph.get('paraPrIDRef'))[0]
+            assert char.get('height')=='1100'
+            assert all(n.get('value')=='150' for n in style.xpath('.//*[local-name()="lineSpacing"]'))
+        assert all(''.join(p.itertext()).startswith('　') for i in [10,11] for p in cells[i].findall('.//{%s}p'%HP))
         assert all(style.get('textColor')=='#000000' for style in header.xpath('//*[local-name()="charPr"]'))
         for style_id,height in [('9','1200'),('15','1000'),('17','1000')]:
             assert header.xpath('//*[local-name()="charPr"][@id="%s"]'%style_id)[0].get('height')==height
