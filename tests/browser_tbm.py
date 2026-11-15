@@ -85,9 +85,14 @@ with sync_playwright() as p:
         assert all(not (node.text or '').strip() for node in metadata.xpath('//*[local-name()="meta"][@name="creator" or @name="lastsaveby"]'))
         with ZipFile(ROOT/'assets/tbm-template.hwpx') as original:
             before=E.fromstring(original.read('Contents/section0.xml'))
-            for old,new in zip(before.findall('.//{%s}tc'%HP),cells):
+            for index,(old,new) in enumerate(zip(before.findall('.//{%s}tc'%HP),cells)):
                 for local in ['cellAddr','cellSpan','cellSz','cellMargin']:
-                    assert old.find('{%s}%s'%(HP,local)).attrib==new.find('{%s}%s'%(HP,local)).attrib
+                    expected=dict(old.find('{%s}%s'%(HP,local)).attrib)
+                    if local=='cellSz' and index in [10,11]:expected['height']=str(int(expected['height'])-283)
+                    assert expected==new.find('{%s}%s'%(HP,local)).attrib
+            old_size=before.find('.//{%s}tbl/{%s}sz'%(HP,HP))
+            new_size=doc.find('.//{%s}tbl/{%s}sz'%(HP,HP))
+            assert int(old_size.get('height'))-int(new_size.get('height'))==283
         # Paragraph count and alignment follow the supplied HWP; every cell is
         # vertically centered for the downloadable form.
         assert len(cells[6].findall('.//{%s}p'%HP))==12

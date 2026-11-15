@@ -75,8 +75,19 @@
     const labelChar=labelStyle('charPr','14');labelChar.setAttribute('height','900');
     const labelPara=labelStyle('paraPr','23');labelPara.setAttribute('snapToGrid','0');
     for(const spacing of labelPara.getElementsByTagNameNS(HH,'lineSpacing'))spacing.setAttribute('value','100');
+    // Trim only the risk/countermeasure row by 1 mm (about 283 HWP units),
+    // matching the small manual row-height adjustment in Hangul.
+    const riskRowTrim=283;
+    for(const index of [10,11]){
+      const size=children(cells[index],'cellSz')[0];
+      size.setAttribute('height',String(Number(size.getAttribute('height'))-riskRowTrim));
+    }
     // NONE keeps rows together; compact typography keeps the table within A4.
-    for(const table of xml.getElementsByTagNameNS(HP,'tbl'))table.setAttribute('pageBreak','NONE');
+    for(const table of xml.getElementsByTagNameNS(HP,'tbl')){
+      table.setAttribute('pageBreak','NONE');
+      const size=children(table,'sz')[0];
+      size.setAttribute('height',String(Number(size.getAttribute('height'))-riskRowTrim));
+    }
     files.set('Contents/header.xml',encoder.encode(new XMLSerializer().serializeToString(header)));
     // Keep every table cell vertically centered in downloaded documents.
     cells.forEach(cell=>children(cell,'subList')[0]?.setAttribute('vertAlign','CENTER'));
