@@ -151,6 +151,14 @@ with sync_playwright() as p:
             '               ㅇ 변압기 소음 및 온도 이상유무 확인',
             '               ㅇ 원격소장치 표시등 점등상태 및 통신상태 점검'
         ]
+        assert list(plan_paragraphs[10].itertext())==[
+            '               ㅇ 원방 및 수동 오조작에 의한 급전',
+            '                  - 전기안전수칙 준수, 전력계통 숙지'
+        ]
+        assert list(plan_paragraphs[11].itertext())==[
+            '               ㅇ 배전반 내 공간 협소 및 돌출부로 인한 외상',
+            '                  - 전방주시 철저, 안전모, 안전화 착용'
+        ]
         assert cells[6].get('hasMargin')=='1'
         assert cells[6].find('{%s}cellMargin'%HP).attrib=={side:'567' for side in ['left','right','top','bottom']}
         assert len(cells[6].findall('.//{%s}lineBreak'%HP))==2
