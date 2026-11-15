@@ -99,6 +99,7 @@ with sync_playwright() as p:
         # Paragraph count and alignment follow the supplied HWP; every cell is
         # vertically centered for the downloadable form.
         assert len(cells[6].findall('.//{%s}p'%HP))==12
+        assert cells[6].get('hasMargin')=='1'
         assert cells[6].find('{%s}cellMargin'%HP).attrib=={side:'567' for side in ['left','right','top','bottom']}
         assert len(cells[6].findall('.//{%s}lineBreak'%HP))==2
         assert all(''.join(p.itertext()).strip() for p in cells[6].findall('.//{%s}p'%HP))
