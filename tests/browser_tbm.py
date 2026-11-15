@@ -54,8 +54,13 @@ with sync_playwright() as p:
     assert risk_summary.evaluate("el=>getComputedStyle(el).color")==worker_summary.evaluate("el=>getComputedStyle(el).color")
     assert risk_summary.evaluate("el=>getComputedStyle(el).borderBottomStyle")=='dotted'
     page.locator('#tbm-risk-picker>summary').click()
+    first_editor=page.locator('.tbm-risk-editor').nth(0)
     second_editor=page.locator('.tbm-risk-editor').nth(1)
+    assert second_editor.locator('option[value="원방 및 수동 오조작에 의한 급전"]').is_disabled()
+    assert first_editor.locator('option[value="배전반내 공간 협소 및 돌출부로 인한 외상"]').is_disabled()
     second_editor.locator('.tbm-risk-select').select_option('교육 및 훈련의 미흡')
+    assert first_editor.locator('option[value="교육 및 훈련의 미흡"]').is_disabled()
+    assert not first_editor.locator('option[value="배전반내 공간 협소 및 돌출부로 인한 외상"]').is_disabled()
     second_editor.locator('.tbm-activity-list input').nth(0).check()
     second_editor.locator('.tbm-activity-list input').nth(1).check()
     assert second_editor.locator('.tbm-activity-list input').evaluate_all("els=>new Set(els.map(el=>el.value)).size===els.length")
