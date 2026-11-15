@@ -2,7 +2,7 @@
   'use strict';
   const panel=document.querySelector('#tbm-generator');
   panel.innerHTML=`<form id="tbm-form"><fieldset id="tbm-controls" class="workspace">
-    <div class="document-toolbar"><label>보기 <select id="tbm-zoom" aria-label="문서 확대 비율"><option value="1">100%</option><option value="0.85">85%</option><option value="0.7">70%</option><option value="0.55">55%</option></select></label><button type="submit" id="tbm-download">HWPX 다운로드</button><span id="tbm-status" role="status" aria-live="polite"></span></div>
+    <div class="document-toolbar"><label>보기 <select id="tbm-zoom" aria-label="문서 확대 비율"><option value="1">100%</option><option value="0.85">85%</option><option value="0.7">70%</option><option value="0.55">55%</option></select></label><details id="tbm-worker-picker" class="toolbar-picker"><summary id="tbm-worker-summary">작업자 선택</summary><div class="document-choice-menu"><label><input type="checkbox" name="tbm-worker" value="김대일" checked> 김대일</label><label><input type="checkbox" name="tbm-worker" value="김승오" checked> 김승오</label><label><input type="checkbox" name="tbm-worker" value="김범석" checked> 김범석</label></div></details><button type="submit" id="tbm-download">HWPX 다운로드</button><span id="tbm-status" role="status" aria-live="polite"></span></div>
     <div class="tbm-document-viewport"><div id="tbm-paper-stage"><article id="tbm-paper" class="tbm-paper" aria-label="작업 전 안전교육 원본 양식 편집"><h2 id="tbm-paper-title"></h2><table id="tbm-document-table" class="tbm-document-table"></table><div id="tbm-legal"></div></article></div></div>
   </fieldset></form>`;
   const $=id=>document.getElementById(id),text=id=>$(id).value.trim();
@@ -13,7 +13,8 @@
   for(let row=0;row<16;row++){
     const tr=document.createElement('tr');
     const source=layout.cells.filter(cell=>cell.row===row);
-    const rowHeight=Math.max(0,...source.filter(cell=>cell.rowSpan===1).map(cell=>cell.height/75));
+    const baseRowHeight=Math.max(0,...source.filter(cell=>cell.rowSpan===1).map(cell=>cell.height/75));
+    const rowHeight=Math.max(0,baseRowHeight-(row===6?566/75:0));
     tr.style.height=`${rowHeight}px`;
     source.forEach(cell=>{
       const td=document.createElement('td');td.id=`tbm-cell-${cell.index}`;td.dataset.sourceCell=cell.index;td.rowSpan=cell.rowSpan;td.colSpan=cell.colSpan;
@@ -31,8 +32,7 @@
   layout.footer.forEach(line=>{const p=document.createElement('p');p.textContent=line;$('tbm-legal').append(p);});
   const put=(index,html)=>{$(`tbm-cell-${index}`).innerHTML=html;};
   put(0,`<div class="document-line">□ 소　　속 : <span class="document-fixed">대구은행 변전분소</span></div><div class="document-line">□ 교육일시 : <input id="tbm-date" aria-label="교육일자" type="date" required><span id="tbm-weekday"></span><input id="tbm-education-start" class="document-clock" aria-label="교육 시작" value="09:10" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" required> ~ <input id="tbm-education-end" class="document-clock" aria-label="교육 종료" value="09:30" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" required></div><div class="document-line">□ 교육장소 : <input id="tbm-location" aria-label="교육장소" value="분소 사무실" required maxlength="40"></div>`);
-  put(6,`<div class="document-work-title">(<select id="tbm-shift" aria-label="근무"><option>야간</option><option>주간</option></select>) <select id="tbm-work-preset" aria-label="작업 종류"><option>변전설비 일상점검</option><option>MCC설비 점검</option><option>수전선로 점검</option><option>직접 입력</option></select><input id="tbm-work-title" aria-label="작업명" value="변전설비 일상점검" required maxlength="60" hidden><span id="tbm-plan-people"></span></div>
-  <div class="document-choices"><span>작업자:</span><details id="tbm-worker-picker"><summary id="tbm-worker-summary">김대일, 김승오, 김범석</summary><div class="document-choice-menu"><label><input type="checkbox" name="tbm-worker" value="김대일" checked> 김대일</label><label><input type="checkbox" name="tbm-worker" value="김승오" checked> 김승오</label><label><input type="checkbox" name="tbm-worker" value="김범석" checked> 김범석</label></div></details></div>
+  put(6,`<div class="document-work-title">(<select id="tbm-shift" aria-label="근무"><option>야간</option><option>주간</option></select>) <select id="tbm-work-preset" aria-label="작업 종류"><option>변전설비 일상점검</option><option>MCC설비 점검</option><option>수전선로 점검</option><option>직접 입력</option></select><input id="tbm-work-title" aria-label="작업명" value="변전설비 일상점검" required maxlength="60" hidden></div>
   <div class="document-line">- 작업일시: <input id="tbm-start" class="document-clock" aria-label="작업 시작" value="09:30" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" required> ~ <input id="tbm-end" class="document-clock" aria-label="작업 종료" value="18:00" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" required></div>
   <div class="document-choices"><span>- 작업구간:</span><details id="tbm-area-picker"><summary id="tbm-area-summary">대구은행 변전소</summary><div class="document-choice-menu document-area-menu"><div class="document-area-row"><b>A</b>${['문양기지','성서산단','반고개','만촌','사월'].map(area=>`<label><input type="checkbox" name="tbm-area" value="${area}"> ${area}</label>`).join('')}</div><div class="document-area-row"><b>B</b>${['대실','죽전','대구은행','수성알파시티','영남대'].map(area=>`<label><input type="checkbox" name="tbm-area" value="${area}"${area==='대구은행'?' checked':''}> ${area}</label>`).join('')}</div></div></details></div>
   <label class="document-line">- 작업순서: <input id="tbm-order" aria-label="작업순서" value="AC반 → DC반 → 기타(RTU 및 충전기반)" required maxlength="120"></label>
@@ -45,13 +45,20 @@
   <div>- 작업원별 임무 및 작업장 이동방법: 육안 점검 실시, 열차를 통한 이동</div>
   <div>- 위험요인 안전조치 및 교육:</div><div id="tbm-plan-risk-summary">ㅇ 원방 및 수동 오조작에 의한 급전\n   - 전기안전수칙 준수, 전력계통 숙지\nㅇ 배전반 내 공간 협소 및 돌출부로 인한 외상\n   - 전방주시 철저, 안전모, 안전화 착용\nㅇ 소화설비 교육</div>`);
   put(8,'<span>유해·위험요인</span>');
-  put(10,'<div>① 원방 및 수동 오조작에 의한 급전</div><div>② 배전반 내 공간 협소 및 돌출부로 인한 외상</div><p>※ 전체 유해‧위험요인은 위험성평가표 참고</p>');
-  put(11,'<div>① 전기안전수칙 준수, 전력계통 숙지</div><div>② 전방주시 철저, 안전모, 안전화 착용</div><div>③ 전력계통 숙지</div>');
+  put(9,'<span>안전대책</span>');
+  put(10,'<div> ① 원방 및 수동 오조작에 의한 급전</div><div> ② 배전반 내 공간 협소 및 돌출부로 인한 외상</div><div> ※ 전체 유해‧위험요인은 위험성평가표 참고</div>');
+  put(11,'<div> ① 전기안전수칙 준수, 전력계통 숙지</div><div> ② 전방주시 철저, 안전모, 안전화 착용</div><div> ③ 전력계통 숙지</div>');
   const checks=['안전보호구 착용 상태','위험요인 안전조치 확인','작업통제 방법 및 준수 여부 확인'];
   checks.forEach((label,i)=>{
+    put([16,19,22][i],`<span class="document-indented"> ${label}</span>`);
     put([17,20,23][i],'<span class="document-manual">□ 적합　□ 부적합</span>');
     put([18,21,24][i],'');
   });
+  put(25,'확 인 자\n(교육교관)');
+  put(26,'작업\n책임자');
+  put(27,'성 명');
+  put(28,'서 명');
+  put(33,'교육참석자,\n작업적합성\n평가\n(업무일지\n참조)');
   put(31,'<span id="tbm-leader"></span>');
   put(30,'');
   for(let i=0;i<4;i++){
@@ -74,7 +81,7 @@
   const chosen=(name)=>[...document.querySelectorAll(`input[name="${name}"]:checked`)].map(input=>input.value);
   function syncWorkersAndAreas(){
     const workers=chosen('tbm-worker'),leader=workers[0]||'',attendees=workers.slice(1);
-    $('tbm-worker-summary').textContent=workers.join(', ')||'작업자 선택';
+    $('tbm-worker-summary').textContent=workers.length?'작업자: '+workers.join(', '):'작업자 선택';
     $('tbm-leader').textContent=leader;
     for(let i=0;i<4;i++)$(`tbm-attendee-${i}`).textContent=attendees[i]||'';
     const areas=chosen('tbm-area');
@@ -85,10 +92,10 @@
     const educationDate=parsed?`${date.replaceAll('-','. ')}. (${new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',weekday:'short'}).format(parsed)}) ${text('tbm-education-start')} ~ ${text('tbm-education-end')}`:'';
     const workers=chosen('tbm-worker'),leader=workers[0]||'',people=workers.slice(1).map(name=>({name,fitness:'미확인'}));
     while(people.length<4)people.push({name:'',fitness:'미확인'});
-    const names=workers.join(', '),risks=fixedRisks;
+    const risks=fixedRisks;
     const methods=[...document.querySelectorAll('input[name="tbm-method"]:checked')].map(input=>input.value).concat(text('tbm-extra-methods').split('\n').map(line=>line.trim()).filter(Boolean));
     const areas=chosen('tbm-area'),area=areas.length?`${areas.join(', ')} 변전소`:'';
-    const planLines=[`(${text('tbm-shift')}) ${text('tbm-work-title')}${names?`(${names})`:''}`,
+    const planLines=[`(${text('tbm-shift')}) ${text('tbm-work-title')}`,
       `  - 작업일시: ${text('tbm-start')} ~ ${text('tbm-end')}`,
       `  - 작업구간: ${area}`,
       `  - 작업순서: ${text('tbm-order')}`,
@@ -104,8 +111,6 @@
   function preview(){
     const data=values();
     syncWorkersAndAreas();
-    const names=[data.leader,...data.attendees.map(person=>person.name)].filter(Boolean);
-    $('tbm-plan-people').textContent=names.length?'('+names.join(', ')+')':'';
     $('tbm-weekday').textContent=data.educationDate?data.educationDate.match(/\([^)]+\)/)?.[0]||'':'';
   }
   $('tbm-form').addEventListener('input',preview);
@@ -121,7 +126,7 @@
     if(!data.methods.length){$('tbm-status').textContent='작업방법을 1개 이상 선택하거나 입력하세요.';return;}
     downloading=true;$('tbm-controls').disabled=true;$('tbm-download').disabled=true;$('tbm-status').textContent='HWPX 생성 중…';
     try{
-      if(!templatePromise)templatePromise=fetch('assets/tbm-template.hwpx?v=20261115-margin-on',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('양식을 불러오지 못했습니다.');return response.arrayBuffer();}).catch(error=>{templatePromise=null;throw error;});
+      if(!templatePromise)templatePromise=fetch('assets/tbm-template.hwpx?v=20261115-preview',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('양식을 불러오지 못했습니다.');return response.arrayBuffer();}).catch(error=>{templatePromise=null;throw error;});
       const bytes=window.HwpxBuilder.fill(await templatePromise,data);
       const blob=new Blob([bytes],{type:'application/hwp+zip'}),url=URL.createObjectURL(blob),link=document.createElement('a');
       link.hidden=true;link.href=url;link.download=`작업 전 안전교육(TBM)(${data.date.replaceAll('-','.')}_${data.shift}).hwpx`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);

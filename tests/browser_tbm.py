@@ -54,6 +54,29 @@ with sync_playwright() as p:
     assert page.locator('#generator-tab-daily').get_attribute('aria-pressed')=='false'
     assert page.locator('#tbm-cell-10 textarea').count()==0
     assert page.locator('#tbm-cell-11 textarea').count()==0
+    assert all(name not in page.locator('#tbm-cell-6').inner_text() for name in ['김대일','김승오','김범석'])
+    assert page.locator('#tbm-worker-picker').evaluate("el=>!el.closest('#tbm-paper')")
+    assert page.locator('#tbm-cell-25').inner_text().splitlines()==['확 인 자','(교육교관)']
+    assert page.locator('#tbm-cell-26').inner_text().splitlines()==['작업','책임자']
+    assert page.locator('#tbm-cell-33').inner_text().splitlines()==['교육참석자,','작업적합성','평가','(업무일지','참조)']
+    assert all(page.locator(f'#tbm-cell-{i}').text_content().startswith(' ') for i in [10,11,16,19,22])
+    web_style=page.evaluate('''()=>{
+      const style=id=>getComputedStyle(document.querySelector(id));
+      return {
+        plan:[style('#tbm-cell-6').fontSize,style('#tbm-cell-6').lineHeight,style('#tbm-cell-6').paddingTop],
+        risk:[style('#tbm-cell-10').fontSize,style('#tbm-cell-10').lineHeight],
+        instructor:style('#tbm-cell-25').fontSize,
+        attendance:style('#tbm-cell-33').fontSize,
+        signature:style('#tbm-cell-27').fontSize,
+        riskRow:document.querySelector('#tbm-cell-10').closest('tr').style.height
+      };
+    }''')
+    assert all(abs(float(value.removesuffix('px'))-expected)<.02 for value,expected in zip(web_style['plan'],[14.6667,22,7.559]))
+    assert all(abs(float(value.removesuffix('px'))-expected)<.02 for value,expected in zip(web_style['risk'],[14.6667,22]))
+    assert abs(float(web_style['instructor'].removesuffix('px'))-14.6667)<.02
+    assert abs(float(web_style['attendance'].removesuffix('px'))-13.3333)<.02
+    assert abs(float(web_style['signature'].removesuffix('px'))-16)<.02
+    assert abs(float(web_style['riskRow'].removesuffix('px'))-(7917-566)/75)<.02
     page.select_option('#tbm-zoom','0.7')
     assert abs(page.locator('#tbm-paper').bounding_box()['width']-794*0.7)<2
     page.select_option('#tbm-zoom','1')
@@ -74,7 +97,7 @@ with sync_playwright() as p:
         assert '2026. 11. 14. (토) 18:10 ~ 18:30' in text(0)
         assert '※ 전체 유해‧위험요인은 위험성평가표 참고' in text(10)
         assert '죽전, 대구은행 변전소' in text(6)
-        assert '김승오' in text(6) and '김범석' in text(6) and '김대일' not in text(6)
+        assert all(name not in text(6) for name in ['김대일','김승오','김범석'])
         assert '소화설비 교육' in text(6)
         assert '③ 전력계통 숙지' in text(11)
         assert all('☑' not in text(i) and '□ 적합' in text(i) for i in [17,20,23,45,46,47,48])
