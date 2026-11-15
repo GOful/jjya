@@ -24,6 +24,8 @@ with sync_playwright() as p:
     page.select_option('#tbm-shift','야간')
     assert page.locator('#tbm-shift').evaluate("el=>el.getBoundingClientRect().width>=62")
     assert page.locator('#tbm-shift option').all_inner_texts()==['야간','주간']
+    assert page.locator('#tbm-work-preset option').all_inner_texts()==['변전설비 일상점검']
+    assert page.locator('#tbm-work-title').count()==0
     assert page.locator('#tbm-education-start').input_value()=='18:10'
     assert page.locator('#tbm-education-end').input_value()=='18:30'
     assert page.locator('#tbm-start').input_value()=='18:30'
