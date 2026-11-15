@@ -7,6 +7,7 @@
   </fieldset></form>`;
   const $=id=>document.getElementById(id),text=id=>$(id).value.trim();
   const layout=window.TBM_FORM_LAYOUT;
+  const fixedMethods=['배전반내 각종 케이블 외관 상태 점검','변압기 소음 및 온도 이상유무 확인','원격소장치 표시등 점등상태 및 통신상태 점검'];
   const table=$('tbm-document-table'),colgroup=document.createElement('colgroup');
   layout.columns.forEach(width=>{const col=document.createElement('col');col.style.width=`${width}%`;colgroup.append(col);});table.append(colgroup);
   const body=document.createElement('tbody');table.append(body);
@@ -37,12 +38,7 @@
   <div id="tbm-worker-row" class="document-choices"><span>- 작업자:</span><details id="tbm-worker-picker"><summary id="tbm-worker-summary">작업자 선택</summary><div class="document-choice-menu"><label><input type="checkbox" name="tbm-worker" value="김대일" checked> 김대일</label><label><input type="checkbox" name="tbm-worker" value="김승오" checked> 김승오</label><label><input type="checkbox" name="tbm-worker" value="김범석" checked> 김범석</label></div></details></div>
   <div id="tbm-area-row" class="document-choices"><span>- 작업구간:</span><details id="tbm-area-picker"><summary id="tbm-area-summary">대구은행 변전소</summary><div class="document-choice-menu document-area-menu"><div class="document-area-row"><b>A</b>${['문양기지','성서산단','반고개','만촌','사월'].map(area=>`<label><input type="checkbox" name="tbm-area" value="${area}"> ${area}</label>`).join('')}</div><div class="document-area-row"><b>B</b>${['대실','죽전','대구은행','수성알파시티','영남대'].map(area=>`<label><input type="checkbox" name="tbm-area" value="${area}"${area==='대구은행'?' checked':''}> ${area}</label>`).join('')}</div></div></details></div>
   <label class="document-line">- 작업순서: <input id="tbm-order" aria-label="작업순서" value="AC반 → DC반 → 기타(RTU 및 충전기반)" required maxlength="120"></label>
-  <div class="document-methods"><span>- 작업방법:</span><div>
-  <label><input type="checkbox" name="tbm-method" value="배전반내 각종 케이블 외관 상태 점검" checked> 배전반내 각종 케이블 외관 상태 점검</label>
-  <label><input type="checkbox" name="tbm-method" value="변압기 소음 및 온도 이상유무 확인" checked> 변압기 소음 및 온도 이상유무 확인</label>
-  <label><input type="checkbox" name="tbm-method" value="원격소장치 표시등 점등상태 및 통신상태 점검" checked> 원격소장치 표시등 점등상태 및 통신상태 점검</label>
-  <details><summary>작업방법 추가</summary><textarea id="tbm-extra-methods" aria-label="추가 작업방법" rows="1" maxlength="300" placeholder="한 줄에 한 항목"></textarea></details>
-  </div></div>
+  <div class="document-methods"><span>- 작업방법:</span><div class="document-fixed-methods">${fixedMethods.map(method=>`<div>ㅇ ${method}</div>`).join('')}</div></div>
   <div>- 작업원별 임무 및 작업장 이동방법: 육안 점검 실시, 열차를 통한 이동</div>
   <div>- 위험요인 안전조치 및 교육:</div><div id="tbm-plan-risk-summary">ㅇ 원방 및 수동 오조작에 의한 급전\n   - 전기안전수칙 준수, 전력계통 숙지\nㅇ 배전반 내 공간 협소 및 돌출부로 인한 외상\n   - 전방주시 철저, 안전모, 안전화 착용\nㅇ 소화설비 교육</div>`);
   put(8,'<span>유해·위험요인</span>');
@@ -94,7 +90,7 @@
     const workers=chosen('tbm-worker'),leader=workers[0]||'',people=workers.slice(1).map(name=>({name,fitness:'미확인'}));
     while(people.length<4)people.push({name:'',fitness:'미확인'});
     const risks=fixedRisks;
-    const methods=[...document.querySelectorAll('input[name="tbm-method"]:checked')].map(input=>input.value).concat(text('tbm-extra-methods').split('\n').map(line=>line.trim()).filter(Boolean));
+    const methods=fixedMethods;
     const areas=chosen('tbm-area'),area=areas.length?`${areas.join(', ')} 변전소`:'';
     const planLines=[`(${text('tbm-shift')}) ${text('tbm-work-title')}`,
       `  - 작업일시: ${text('tbm-start')} ~ ${text('tbm-end')}`,
@@ -125,10 +121,9 @@
     const data=values();
     if(!data.leader){$('tbm-status').textContent='작업자를 1명 이상 선택하세요.';return;}
     if(!chosen('tbm-area').length){$('tbm-status').textContent='작업구간을 1개 이상 선택하세요.';return;}
-    if(!data.methods.length){$('tbm-status').textContent='작업방법을 1개 이상 선택하거나 입력하세요.';return;}
     downloading=true;$('tbm-controls').disabled=true;$('tbm-download').disabled=true;$('tbm-status').textContent='HWPX 생성 중…';
     try{
-      if(!templatePromise)templatePromise=fetch('assets/tbm-template.hwpx?v=20261115-preview5',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('양식을 불러오지 못했습니다.');return response.arrayBuffer();}).catch(error=>{templatePromise=null;throw error;});
+      if(!templatePromise)templatePromise=fetch('assets/tbm-template.hwpx?v=20261115-preview6',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('양식을 불러오지 못했습니다.');return response.arrayBuffer();}).catch(error=>{templatePromise=null;throw error;});
       const bytes=window.HwpxBuilder.fill(await templatePromise,data);
       const blob=new Blob([bytes],{type:'application/hwp+zip'}),url=URL.createObjectURL(blob),link=document.createElement('a');
       link.hidden=true;link.href=url;link.download=`작업 전 안전교육(TBM)(${data.date.replaceAll('-','.')}_${data.shift}).hwpx`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);

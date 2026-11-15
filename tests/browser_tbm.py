@@ -89,6 +89,12 @@ with sync_playwright() as p:
     method_label=page.locator('.document-methods>span')
     assert method_label.inner_text()=='- 작업방법:'
     assert method_label.evaluate("el=>getComputedStyle(el).whiteSpace")=='nowrap'
+    assert page.locator('input[name="tbm-method"],#tbm-extra-methods,.document-methods details').count()==0
+    assert page.locator('.document-fixed-methods>div').all_inner_texts()==[
+        'ㅇ 배전반내 각종 케이블 외관 상태 점검',
+        'ㅇ 변압기 소음 및 온도 이상유무 확인',
+        'ㅇ 원격소장치 표시등 점등상태 및 통신상태 점검'
+    ]
     page.select_option('#tbm-zoom','0.7')
     assert abs(page.locator('#tbm-paper').bounding_box()['width']-794*0.7)<2
     page.select_option('#tbm-zoom','1')
@@ -140,6 +146,11 @@ with sync_playwright() as p:
         assert plan_texts[1]=='  - 작업일시: 18:30 ~ 00:20'
         assert plan_texts[2]=='  - 작업자: 김승오, 김범석'
         assert plan_texts[3]=='  - 작업구간: 죽전, 대구은행 변전소'
+        assert plan_texts[5:8]==[
+            '  - 작업방법:  ㅇ 배전반내 각종 케이블 외관 상태 점검',
+            '               ㅇ 변압기 소음 및 온도 이상유무 확인',
+            '               ㅇ 원격소장치 표시등 점등상태 및 통신상태 점검'
+        ]
         assert cells[6].get('hasMargin')=='1'
         assert cells[6].find('{%s}cellMargin'%HP).attrib=={side:'567' for side in ['left','right','top','bottom']}
         assert len(cells[6].findall('.//{%s}lineBreak'%HP))==2
