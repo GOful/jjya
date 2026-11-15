@@ -75,9 +75,9 @@
     const labelChar=labelStyle('charPr','14');labelChar.setAttribute('height','900');
     const labelPara=labelStyle('paraPr','23');labelPara.setAttribute('snapToGrid','0');
     for(const spacing of labelPara.getElementsByTagNameNS(HH,'lineSpacing'))spacing.setAttribute('value','100');
-    // Trim only the risk/countermeasure row by 1 mm (about 283 HWP units),
+    // Trim only the risk/countermeasure row by 2 mm (about 566 HWP units),
     // matching the small manual row-height adjustment in Hangul.
-    const riskRowTrim=283;
+    const riskRowTrim=566;
     for(const index of [10,11]){
       const size=children(cells[index],'cellSz')[0];
       size.setAttribute('height',String(Number(size.getAttribute('height'))-riskRowTrim));

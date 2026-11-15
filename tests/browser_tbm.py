@@ -88,11 +88,11 @@ with sync_playwright() as p:
             for index,(old,new) in enumerate(zip(before.findall('.//{%s}tc'%HP),cells)):
                 for local in ['cellAddr','cellSpan','cellSz','cellMargin']:
                     expected=dict(old.find('{%s}%s'%(HP,local)).attrib)
-                    if local=='cellSz' and index in [10,11]:expected['height']=str(int(expected['height'])-283)
+                    if local=='cellSz' and index in [10,11]:expected['height']=str(int(expected['height'])-566)
                     assert expected==new.find('{%s}%s'%(HP,local)).attrib
             old_size=before.find('.//{%s}tbl/{%s}sz'%(HP,HP))
             new_size=doc.find('.//{%s}tbl/{%s}sz'%(HP,HP))
-            assert int(old_size.get('height'))-int(new_size.get('height'))==283
+            assert int(old_size.get('height'))-int(new_size.get('height'))==566
         # Paragraph count and alignment follow the supplied HWP; every cell is
         # vertically centered for the downloadable form.
         assert len(cells[6].findall('.//{%s}p'%HP))==12
