@@ -83,6 +83,8 @@ with sync_playwright() as p:
     assert abs(float(web_style['attendance'].removesuffix('px'))-13.3333)<.02
     assert abs(float(web_style['signature'].removesuffix('px'))-16)<.02
     assert abs(float(web_style['riskRow'].removesuffix('px'))-(7917-566)/75)<.02
+    assert abs(float(page.locator('#tbm-cell-0 .document-line').first.evaluate("el=>getComputedStyle(el).fontSize").removesuffix('px'))-14.6667)<.02
+    assert abs(float(page.locator('#tbm-weekday').evaluate("el=>getComputedStyle(el).fontSize").removesuffix('px'))-14.6667)<.02
     assert all(page.locator(f'#tbm-cell-{i}').evaluate("el=>getComputedStyle(el).textAlign")=='center' for i in [30,31,35,36,37,38])
     method_label=page.locator('.document-methods>span')
     assert method_label.inner_text()=='- 작업방법:'
@@ -107,7 +109,7 @@ with sync_playwright() as p:
         assert '2026. 11. 14. (토) 18:10 ~ 18:30' in text(0)
         assert '※ 전체 유해‧위험요인은 위험성평가표 참고' in text(10)
         assert '죽전, 대구은행 변전소' in text(6)
-        assert all(name not in text(6) for name in ['김대일','김승오','김범석'])
+        assert '김대일' not in text(6) and '김승오, 김범석' in text(6)
         assert '소화설비 교육' in text(6)
         assert '③ 전력계통 숙지' in text(11)
         assert all('☑' not in text(i) and '□ 적합' in text(i) for i in [17,20,23,45,46,47,48])
@@ -131,11 +133,17 @@ with sync_playwright() as p:
             assert int(old_size.get('height'))-int(new_size.get('height'))==566
         # Paragraph count and alignment follow the supplied HWP; every cell is
         # vertically centered for the downloadable form.
-        assert len(cells[6].findall('.//{%s}p'%HP))==12
+        plan_paragraphs=cells[6].findall('.//{%s}p'%HP)
+        assert len(plan_paragraphs)==13
+        plan_texts=[''.join(p.itertext()) for p in plan_paragraphs]
+        assert all(name not in plan_texts[0] for name in ['김대일','김승오','김범석'])
+        assert plan_texts[1]=='  - 작업일시: 18:30 ~ 00:20'
+        assert plan_texts[2]=='  - 작업자: 김승오, 김범석'
+        assert plan_texts[3]=='  - 작업구간: 죽전, 대구은행 변전소'
         assert cells[6].get('hasMargin')=='1'
         assert cells[6].find('{%s}cellMargin'%HP).attrib=={side:'567' for side in ['left','right','top','bottom']}
         assert len(cells[6].findall('.//{%s}lineBreak'%HP))==2
-        assert all(''.join(p.itertext()).strip() for p in cells[6].findall('.//{%s}p'%HP))
+        assert all(''.join(p.itertext()).strip() for p in plan_paragraphs)
         assert len(cells[10].findall('.//{%s}p'%HP))==3
         assert len(cells[11].findall('.//{%s}p'%HP))==3
         assert all(len(cells[i].findall('.//{%s}p'%HP))==1 for i in [1,2,3,25,29,33])
