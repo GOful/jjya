@@ -45,8 +45,20 @@ with sync_playwright() as p:
     page.locator('#tbm-area-picker summary').click()
     assert page.locator('#tbm-railway-manager').count()==0
     assert page.locator('#tbm-area-summary').inner_text()=='죽전, 대구은행 변전소'
+    assert page.locator('.tbm-risk-editor').count()==2
+    assert all(page.locator('.tbm-risk-select').nth(i).locator('option').count()==16 for i in range(2))
+    assert page.locator('.tbm-risk-select').first.evaluate("el=>new Set([...el.options].map(o=>o.value)).size===el.options.length")
+    page.locator('#tbm-risk-picker>summary').click()
+    second_editor=page.locator('.tbm-risk-editor').nth(1)
+    second_editor.locator('.tbm-risk-select').select_option('교육 및 훈련의 미흡')
+    second_editor.locator('.tbm-activity-list input').nth(0).check()
+    second_editor.locator('.tbm-activity-list input').nth(1).check()
+    assert second_editor.locator('.tbm-activity-list input').evaluate_all("els=>new Set(els.map(el=>el.value)).size===els.length")
+    page.locator('#tbm-risk-picker>summary').click()
     assert '원방 및 수동 오조작에 의한 급전' in page.locator('#tbm-plan-risk-summary').inner_text()
-    assert '소화설비 교육' in page.locator('#tbm-plan-risk-summary').inner_text()
+    assert '교육 및 훈련의 미흡' in page.locator('#tbm-plan-risk-summary').inner_text()
+    assert '작업 전 TBM 실시, 주기적 안전교육' in page.locator('#tbm-plan-risk-summary').inner_text()
+    assert '소화설비 교육' not in page.locator('#tbm-plan-risk-summary').inner_text()
     assert page.locator('[data-result-target]').count()==0
     assert page.locator('.document-manual').count()==7
     assert page.locator('#tbm-document-table td').count()==49
@@ -120,8 +132,8 @@ with sync_playwright() as p:
         assert '※ 전체 유해‧위험요인은 위험성평가표 참고' in text(10)
         assert '죽전, 대구은행 변전소' in text(6)
         assert '김대일' not in text(6) and '김승오, 김범석' in text(6)
-        assert '소화설비 교육' in text(6)
-        assert '③ 전력계통 숙지' in text(11)
+        assert '교육 및 훈련의 미흡' in text(6) and '소화설비 교육' not in text(6)
+        assert '② 작업 전 TBM 실시, 주기적 안전교육' in text(11)
         assert all('☑' not in text(i) and '□ 적합' in text(i) for i in [17,20,23,45,46,47,48])
         assert all(text(i).startswith(' ') for i in [16,19,22])
         assert all(not text(i).startswith((' ','　')) for i in [17,18,20,21,23,24])
@@ -144,7 +156,7 @@ with sync_playwright() as p:
         # Paragraph count and alignment follow the supplied HWP; every cell is
         # vertically centered for the downloadable form.
         plan_paragraphs=cells[6].findall('.//{%s}p'%HP)
-        assert len(plan_paragraphs)==13
+        assert len(plan_paragraphs)==12
         plan_texts=[''.join(p.itertext()) for p in plan_paragraphs]
         assert all(name not in plan_texts[0] for name in ['김대일','김승오','김범석'])
         assert plan_texts[1]=='  - 작업일시: 18:30 ~ 00:20'
@@ -160,16 +172,15 @@ with sync_playwright() as p:
             '        - 전기안전수칙 준수, 전력계통 숙지'
         ]
         assert list(plan_paragraphs[11].itertext())==[
-            '     ㅇ 배전반 내 공간 협소 및 돌출부로 인한 외상',
-            '        - 전방주시 철저, 안전모, 안전화 착용'
+            '     ㅇ 교육 및 훈련의 미흡',
+            '        - 작업 전 TBM 실시, 주기적 안전교육'
         ]
-        assert plan_texts[12]=='     ㅇ 소화설비 교육'
         assert cells[6].get('hasMargin')=='1'
         assert cells[6].find('{%s}cellMargin'%HP).attrib=={side:'567' for side in ['left','right','top','bottom']}
         assert len(cells[6].findall('.//{%s}lineBreak'%HP))==2
         assert all(''.join(p.itertext()).strip() for p in plan_paragraphs)
         assert len(cells[10].findall('.//{%s}p'%HP))==3
-        assert len(cells[11].findall('.//{%s}p'%HP))==3
+        assert len(cells[11].findall('.//{%s}p'%HP))==2
         assert all(len(cells[i].findall('.//{%s}p'%HP))==1 for i in [1,2,3,25,29,33])
         assert all(''.join(p.itertext()).strip() for i in [1,2,25,29,33] for p in cells[i].findall('.//{%s}p'%HP))
         assert all(cell.find('{%s}subList'%HP).get('vertAlign')=='CENTER' for cell in cells)
@@ -233,4 +244,4 @@ with sync_playwright() as p:
     assert not errors,errors
     browser.close()
 server.shutdown()
-print('PASS: generator switch, automatic shift/time, ranked workers, multiple areas, fixed risks, manual checkboxes, actual HWPX download, CRC/XML validity, form geometry/styles, blank signatures, mobile layout')
+print('PASS: generator switch, automatic shift/time, ranked workers, multiple areas, selectable deduplicated risks, manual checkboxes, actual HWPX download, CRC/XML validity, form geometry/styles, blank signatures, mobile layout')
