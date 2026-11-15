@@ -2,6 +2,7 @@
 (() => {
   'use strict';
   const HP='http://www.hancom.co.kr/hwpml/2011/paragraph';
+  const HH='http://www.hancom.co.kr/hwpml/2011/head';
   const encoder=new TextEncoder(),decoder=new TextDecoder();
   const crcTable=Array.from({length:256},(_,value)=>{for(let i=0;i<8;i++)value=value&1?0xedb88320^(value>>>1):value>>>1;return value>>>0;});
   const crc32=bytes=>{let value=0xffffffff;for(const byte of bytes)value=crcTable[(value^byte)&255]^(value>>>8);return (value^0xffffffff)>>>0;};
@@ -47,6 +48,24 @@
   function fill(template,values){
     const files=readZip(template),xml=parseXml(files.get('Contents/section0.xml'));
     const cells=[...xml.getElementsByTagNameNS(HP,'tc')];if(cells.length!==49)throw new Error('양식의 표 구조가 변경되었습니다.');
+    // Fit the fixed A4 form without letting large inherited text expand its rows.
+    // Normalize the download, rather than changing the editable source template.
+    const header=parseXml(files.get('Contents/header.xml'));
+    for(const style of header.getElementsByTagNameNS(HH,'charPr')){
+      style.setAttribute('textColor','#000000');
+      if(style.getAttribute('id')==='9')style.setAttribute('height','1200');
+      if(['15','17'].includes(style.getAttribute('id')))style.setAttribute('height','1000');
+    }
+    for(const style of header.getElementsByTagNameNS(HH,'paraPr')){
+      if(!['22','33','34'].includes(style.getAttribute('id')))continue;
+      for(const spacing of style.getElementsByTagNameNS(HH,'lineSpacing')){
+        spacing.setAttribute('type','PERCENT');spacing.setAttribute('value','120');
+      }
+      style.setAttribute('snapToGrid','0');
+    }
+    // NONE keeps rows together; compact typography keeps the table within A4.
+    for(const table of xml.getElementsByTagNameNS(HP,'tbl'))table.setAttribute('pageBreak','NONE');
+    files.set('Contents/header.xml',encoder.encode(new XMLSerializer().serializeToString(header)));
     // Keep every table cell vertically centered in downloaded documents.
     cells.forEach(cell=>children(cell,'subList')[0]?.setAttribute('vertAlign','CENTER'));
     function paragraphs(index,lines,charId,paraId){

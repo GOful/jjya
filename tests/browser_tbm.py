@@ -84,7 +84,6 @@ with sync_playwright() as p:
         metadata=E.fromstring(z.read('Contents/content.hpf'))
         assert all(not (node.text or '').strip() for node in metadata.xpath('//*[local-name()="meta"][@name="creator" or @name="lastsaveby"]'))
         with ZipFile(ROOT/'assets/tbm-template.hwpx') as original:
-            assert z.read('Contents/header.xml')==original.read('Contents/header.xml')
             before=E.fromstring(original.read('Contents/section0.xml'))
             for old,new in zip(before.findall('.//{%s}tc'%HP),cells):
                 for local in ['cellAddr','cellSpan','cellSz','cellMargin']:
@@ -102,10 +101,20 @@ with sync_playwright() as p:
         assert all(p.get('paraPrIDRef')=='33' for p in cells[6].findall('.//{%s}p'%HP))
         assert all(p.get('paraPrIDRef')=='34' for i in [10,11] for p in cells[i].findall('.//{%s}p'%HP))
         header=E.fromstring(z.read('Contents/header.xml'))
-        for style_id,spacing in [('33','150'),('34','160')]:
+        for style_id,spacing in [('22','120'),('33','120'),('34','120')]:
             style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%style_id)[0]
-            assert style.xpath('./*[local-name()="align"]')[0].get('horizontal')=='LEFT'
+            if style_id!='22':assert style.xpath('./*[local-name()="align"]')[0].get('horizontal')=='LEFT'
             assert all(node.get('value')==spacing for node in style.xpath('.//*[local-name()="lineSpacing"]'))
+        assert all(style.get('textColor')=='#000000' for style in header.xpath('//*[local-name()="charPr"]'))
+        for style_id,height in [('9','1200'),('15','1000'),('17','1000')]:
+            assert header.xpath('//*[local-name()="charPr"][@id="%s"]'%style_id)[0].get('height')==height
+        assert doc.xpath('//*[local-name()="tbl"]')[0].get('pageBreak')=='NONE'
+        # Keep the fixed table, its margins and dimensions inside the printable A4 area.
+        table=doc.xpath('//*[local-name()="tbl"]')[0]
+        page_pr=doc.xpath('//*[local-name()="pagePr"]')[0]
+        margin=page_pr[0]
+        table_height=int(table.find('{%s}sz'%HP).get('height'))
+        assert table_height < int(page_pr.get('height'))-sum(int(margin.get(k)) for k in ['top','bottom','header','footer'])
         for cell_index in [17,20,23,30,31,35,36,37,38,45,46,47,48]:
             paragraph=cells[cell_index].find('.//{%s}p'%HP)
             style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%paragraph.get('paraPrIDRef'))[0]
