@@ -2,11 +2,12 @@
   'use strict';
   const panel=document.querySelector('#tbm-generator');
   panel.innerHTML=`<form id="tbm-form"><fieldset id="tbm-controls" class="workspace">
-    <div class="document-toolbar"><label>보기 <select id="tbm-zoom" aria-label="문서 확대 비율"><option value="1">100%</option><option value="0.85">85%</option><option value="0.7">70%</option><option value="0.55">55%</option></select></label><button type="button" id="tbm-folder">저장 폴더 선택</button><button type="submit" id="tbm-download">HWPX 다운로드</button><span id="tbm-folder-status">저장 위치: 선택 안 됨</span><span id="tbm-status" role="status" aria-live="polite"></span></div>
+    <div class="document-toolbar"><button type="button" id="tbm-folder">저장 폴더 선택</button><button type="submit" id="tbm-download">HWPX 다운로드</button><span id="tbm-folder-status">저장 위치: 선택 안 됨</span><span id="tbm-status" role="status" aria-live="polite"></span></div>
     <div class="tbm-document-viewport"><div id="tbm-paper-stage"><article id="tbm-paper" class="tbm-paper" aria-label="작업 전 안전교육 원본 양식 편집"><h2 id="tbm-paper-title"></h2><table id="tbm-document-table" class="tbm-document-table"></table><div id="tbm-legal"></div></article></div></div>
   </fieldset></form>`;
   const $=id=>document.getElementById(id),text=id=>$(id).value.trim();
   const layout=window.TBM_FORM_LAYOUT;
+  const fixedOrder='AC반 → DC반 → 기타(RTU 및 충전기반)';
   const fixedMethods=['배전반내 각종 케이블 외관 상태 점검','변압기 소음 및 온도 이상유무 확인','원격소장치 표시등 점등상태 및 통신상태 점검'];
   // Deduplicated from 위험성평가.xlsx rows whose 작업종류 is 변전설비 일상점검.
   const riskCatalog=[
@@ -59,7 +60,7 @@
   <div id="tbm-work-time-row" class="document-line">- 작업일시: <input id="tbm-start" class="document-clock" aria-label="작업 시작" value="09:30" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" required> ~ <input id="tbm-end" class="document-clock" aria-label="작업 종료" value="18:00" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" required></div>
   <div id="tbm-worker-row" class="document-choices"><span>- 작업자:</span><details id="tbm-worker-picker"><summary id="tbm-worker-summary">작업자 선택</summary><div class="document-choice-menu"><label><input type="checkbox" name="tbm-worker" value="김대일" checked> 김대일</label><label><input type="checkbox" name="tbm-worker" value="김승오" checked> 김승오</label><label><input type="checkbox" name="tbm-worker" value="김범석" checked> 김범석</label></div></details></div>
   <div id="tbm-area-row" class="document-choices"><span>- 작업구간:</span><details id="tbm-area-picker"><summary id="tbm-area-summary">대구은행 변전소</summary><div class="document-choice-menu document-area-menu"><div class="document-area-row"><b>A</b>${['문양기지','성서산단','반고개','만촌','사월'].map(area=>`<label><input type="checkbox" name="tbm-area" value="${area}"> ${area}</label>`).join('')}</div><div class="document-area-row"><b>B</b>${['대실','죽전','대구은행','수성알파시티','영남대'].map(area=>`<label><input type="checkbox" name="tbm-area" value="${area}"${area==='대구은행'?' checked':''}> ${area}</label>`).join('')}</div></div></details></div>
-  <label class="document-line">- 작업순서: <input id="tbm-order" aria-label="작업순서" value="AC반 → DC반 → 기타(RTU 및 충전기반)" required maxlength="120"></label>
+  <div class="document-line">- 작업순서: <span class="document-fixed">${fixedOrder}</span></div>
   <div class="document-methods"><span>- 작업방법:</span><div class="document-fixed-methods">${fixedMethods.map(method=>`<div>ㅇ ${method}</div>`).join('')}</div></div>
   <div>- 작업원별 임무 및 작업장 이동방법: 육안 점검 실시, 열차를 통한 이동</div>
   <div class="document-risk-heading"><span>- 위험요인 안전조치 및 교육:</span></div><div id="tbm-risk-editors"></div>`);
@@ -102,14 +103,14 @@
     const summary=document.createElement('summary');summary.className='tbm-risk-selected-summary';
     const menu=document.createElement('div');menu.className='document-risk-menu';
     const controls=document.createElement('div');controls.className='tbm-risk-controls';
-    const title=document.createElement('strong');title.textContent=`선택 ${index+1}`;
     const select=document.createElement('select');select.className='tbm-risk-select';select.setAttribute('aria-label',`유해·위험요인 ${index+1}`);
     const blank=document.createElement('option');blank.value='';blank.textContent='선택 안 함';select.append(blank);
     riskCatalog.forEach(item=>{const option=document.createElement('option');option.value=item.risk;option.textContent=item.risk;select.append(option);});
     select.value=selection.risk;
     const activities=document.createElement('div');activities.className='tbm-activity-list';
+    const done=document.createElement('button');done.type='button';done.className='tbm-risk-done';done.textContent='완료';done.addEventListener('click',()=>{picker.open=false;});
     const ruleSummary=document.createElement('div');ruleSummary.className='tbm-risk-rule-summary';
-    controls.append(title,select,activities);menu.append(controls);picker.append(summary,menu);editor.append(picker,ruleSummary);
+    controls.append(select,activities,done);menu.append(controls);picker.append(summary,menu);editor.append(picker,ruleSummary);
     riskEditors.append(editor);renderActivityChoices(editor,selection.activities);
     select.addEventListener('change',()=>{renderActivityChoices(editor);syncRiskOptionAvailability();preview();});
   });
@@ -187,11 +188,13 @@
   }
   async function writableDirectory(){
     if(!window.showDirectoryPicker)return null;
-    if(!downloadDirectory)return chooseDirectory();
-    let permission=await downloadDirectory.queryPermission({mode:'readwrite'});
-    if(permission==='prompt')permission=await downloadDirectory.requestPermission({mode:'readwrite'});
-    if(permission==='granted')return downloadDirectory;
-    return chooseDirectory();
+    if(!downloadDirectory)return null;
+    try{
+      let permission=await downloadDirectory.queryPermission({mode:'readwrite'});
+      if(permission==='prompt')permission=await downloadDirectory.requestPermission({mode:'readwrite'});
+      if(permission==='granted')return downloadDirectory;
+    }catch(_){/* A stale or unavailable network handle falls back to Save As. */}
+    downloadDirectory=null;showDirectoryStatus();return null;
   }
   async function unusedFileName(directory,fileName){
     const dot=fileName.lastIndexOf('.'),base=dot<0?fileName:fileName.slice(0,dot),extension=dot<0?'':fileName.slice(dot);
@@ -207,7 +210,7 @@
   }
   $('tbm-folder').addEventListener('click',async()=>{
     try{await chooseDirectory();if(downloadDirectory)$('tbm-status').textContent=`${downloadDirectory.name} 폴더를 저장 위치로 설정했습니다.`;}
-    catch(error){if(error.name!=='AbortError')$('tbm-status').textContent='저장 폴더를 선택하지 못했습니다.';}
+    catch(error){$('tbm-status').textContent=error.name==='AbortError'?'폴더가 적용되지 않았습니다. 공유 폴더를 네트워크 드라이브로 연결한 뒤 다시 선택해 보세요.':`저장 폴더 연결 실패: ${error.message||error.name}`;}
   });
   if(window.showDirectoryPicker)storedDirectory().then(handle=>{if(handle){downloadDirectory=handle;showDirectoryStatus();}}).catch(()=>{});
   else $('tbm-folder-status').textContent='저장 위치: 기본 다운로드 폴더';
@@ -232,7 +235,7 @@
       `  - 작업일시: ${text('tbm-start')} ~ ${text('tbm-end')}`,
       `  - 작업자: ${workers.join(', ')}`,
       `  - 작업구간: ${area}`,
-      `  - 작업순서: ${text('tbm-order')}`,
+      `  - 작업순서: ${fixedOrder}`,
       ...methods.map((line,index)=>`${index?'               ':'  - 작업방법:  '}ㅇ ${line}`),
       '  - 작업원별 임무 및 작업장 이동방법: 육안 점검 실시, 열차를 통한 이동',
       '  - 위험요인 안전조치 및 교육:',
@@ -249,9 +252,6 @@
   }
   $('tbm-form').addEventListener('input',preview);
   $('tbm-form').addEventListener('change',preview);
-  function resizePaper(){const scale=Number(text('tbm-zoom'));$('tbm-paper').style.zoom=scale;$('tbm-paper-stage').style.width=`${794*scale}px`;$('tbm-paper-stage').style.height=`${$('tbm-paper').offsetHeight*scale}px`;}
-  $('tbm-zoom').addEventListener('change',resizePaper);
-  new ResizeObserver(resizePaper).observe($('tbm-paper'));
   $('tbm-form').addEventListener('submit',async event=>{
     event.preventDefault();if(downloading)return;
     const data=values();
@@ -261,25 +261,28 @@
     if(data.risks.some(item=>!item.activities.length)){$('tbm-status').textContent='선택한 유해·위험요인의 관리활동을 1개 이상 선택하세요.';return;}
     downloading=true;
     try{
+      const fileName=`작업 전 안전교육(TBM)(${data.date.replaceAll('-','.')}_${data.shift}).hwpx`;
       const directory=await writableDirectory();
+      const fileHandle=!directory&&window.showSaveFilePicker?await window.showSaveFilePicker({id:'tbm-hwpx-file',suggestedName:fileName,types:[{description:'HWPX 문서',accept:{'application/hwp+zip':['.hwpx']}}]}):null;
       $('tbm-controls').disabled=true;$('tbm-download').disabled=true;$('tbm-status').textContent='HWPX 생성 중…';
-      if(!templatePromise)templatePromise=fetch('assets/tbm-template.hwpx?v=20261115-risk-picker6',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('양식을 불러오지 못했습니다.');return response.arrayBuffer();}).catch(error=>{templatePromise=null;throw error;});
+      if(!templatePromise)templatePromise=fetch('assets/tbm-template.hwpx?v=20261115-risk-picker9',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('양식을 불러오지 못했습니다.');return response.arrayBuffer();}).catch(error=>{templatePromise=null;throw error;});
       const bytes=window.HwpxBuilder.fill(await templatePromise,data);
-      const blob=new Blob([bytes],{type:'application/hwp+zip'}),fileName=`작업 전 안전교육(TBM)(${data.date.replaceAll('-','.')}_${data.shift}).hwpx`;
+      const blob=new Blob([bytes],{type:'application/hwp+zip'});
       if(directory){const savedName=await saveToDirectory(directory,fileName,blob);$('tbm-status').textContent=`${directory.name} 폴더에 ${savedName} 저장 완료`;}
+      else if(fileHandle){const writable=await fileHandle.createWritable();await writable.write(blob);await writable.close();$('tbm-status').textContent=`${fileHandle.name} 저장 완료`;}
       else{
         const url=URL.createObjectURL(blob),link=document.createElement('a');
         link.hidden=true;link.href=url;link.download=fileName;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
         $('tbm-status').textContent='HWPX 다운로드 완료';
       }
       preview();
-    }catch(error){if(error.name==='AbortError')$('tbm-status').textContent='저장 폴더 선택을 취소했습니다.';else $('tbm-status').textContent=error.message||'문서 생성에 실패했습니다. 입력 내용을 확인하고 다시 시도하세요.';}
+    }catch(error){if(error.name==='AbortError')$('tbm-status').textContent='파일 저장을 취소했습니다.';else $('tbm-status').textContent=error.message||'문서 생성에 실패했습니다. 입력 내용을 확인하고 다시 시도하세요.';}
     finally{downloading=false;$('tbm-controls').disabled=false;$('tbm-download').disabled=false;}
   });
   document.querySelectorAll('[data-generator]').forEach(button=>button.addEventListener('click',()=>{
     const open=button.dataset.generator==='tbm';panel.hidden=!open;$('daily-generator').hidden=open;
     document.querySelectorAll('[data-generator]').forEach(tab=>tab.setAttribute('aria-pressed',String(tab===button)));
-    if(open){preview();requestAnimationFrame(resizePaper);}
+    if(open)preview();
   }));
   applyShift();preview();
 })();

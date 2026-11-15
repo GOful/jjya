@@ -16,7 +16,7 @@ with sync_playwright() as p:
     page=browser.new_page(viewport={'width':1440,'height':1000},accept_downloads=True)
     errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
     page.route('**/supabase-config.js',lambda route:route.fulfill(content_type='application/javascript',body='window.SUPABASE_CONFIG={enabled:false};'))
-    page.add_init_script('delete window.showDirectoryPicker')
+    page.add_init_script('delete window.showDirectoryPicker;delete window.showSaveFilePicker')
     page.goto(f'http://127.0.0.1:{server.server_port}/index.html')
     page.locator('#generator-tab-tbm').click()
     assert page.locator('#tbm-generator').is_visible() and not page.locator('#daily-generator').is_visible()
@@ -51,6 +51,7 @@ with sync_playwright() as p:
     assert page.locator('.tbm-risk-select').first.evaluate("el=>new Set([...el.options].map(o=>o.value)).size===el.options.length")
     risk_summaries=page.locator('.tbm-risk-editor .document-risk-picker>summary')
     assert risk_summaries.count()==2
+    assert page.locator('.tbm-risk-done').all_text_contents()==['완료','완료']
     assert risk_summaries.all_inner_texts()==['원방 및 수동 오조작에 의한 급전','배전반내 공간 협소 및 돌출부로 인한 외상']
     risk_summary=risk_summaries.first
     worker_summary=page.locator('#tbm-worker-picker>summary')
@@ -68,7 +69,8 @@ with sync_playwright() as p:
     second_editor.locator('.tbm-activity-list input').nth(0).check()
     second_editor.locator('.tbm-activity-list input').nth(1).check()
     assert second_editor.locator('.tbm-activity-list input').evaluate_all("els=>new Set(els.map(el=>el.value)).size===els.length")
-    second_editor.locator('.document-risk-picker>summary').click()
+    second_editor.locator('.tbm-risk-done').click()
+    assert not second_editor.locator('.document-risk-picker').evaluate('el=>el.open')
     assert risk_summaries.all_inner_texts()==['원방 및 수동 오조작에 의한 급전','교육 및 훈련의 미흡']
     assert '원방 및 수동 오조작에 의한 급전' in page.locator('#tbm-risk-editors').inner_text()
     assert '작업 전 TBM 실시, 주기적 안전교육' in page.locator('#tbm-risk-editors').inner_text()
@@ -120,14 +122,14 @@ with sync_playwright() as p:
     assert method_label.inner_text()=='- 작업방법:'
     assert method_label.evaluate("el=>getComputedStyle(el).whiteSpace")=='nowrap'
     assert page.locator('input[name="tbm-method"],#tbm-extra-methods,.document-methods details').count()==0
+    assert page.locator('#tbm-order').count()==0
+    assert page.locator('#tbm-cell-6').get_by_text('AC반 → DC반 → 기타(RTU 및 충전기반)',exact=True).is_visible()
     assert page.locator('.document-fixed-methods>div').all_inner_texts()==[
         'ㅇ 배전반내 각종 케이블 외관 상태 점검',
         'ㅇ 변압기 소음 및 온도 이상유무 확인',
         'ㅇ 원격소장치 표시등 점등상태 및 통신상태 점검'
     ]
-    page.select_option('#tbm-zoom','0.7')
-    assert abs(page.locator('#tbm-paper').bounding_box()['width']-794*0.7)<2
-    page.select_option('#tbm-zoom','1')
+    assert page.locator('#tbm-zoom').count()==0
     page.screenshot(path='/tmp/tbm-generator-desktop.png',full_page=True)
     with page.expect_download() as info:page.locator('#tbm-download').click()
     download=info.value;assert download.suggested_filename=='작업 전 안전교육(TBM)(2026.11.14_야간).hwpx'
@@ -251,6 +253,11 @@ with sync_playwright() as p:
             style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%paragraph.get('paraPrIDRef'))[0]
             assert style.xpath('./*[local-name()="align"]')[0].get('horizontal')=='CENTER'
         assert '김범석' in z.read('Preview/PrvText.txt').decode()
+    # If a shared directory cannot be granted, Save As remains available and
+    # lets Chromium remember the last location used by this picker ID.
+    page.evaluate('''()=>{window.__saveAsFiles=[];window.showSaveFilePicker=async options=>({name:options.suggestedName,createWritable:async()=>({write:async blob=>window.__saveAsFiles.push({name:options.suggestedName,size:blob.size}),close:async()=>{}})});}''')
+    page.locator('#tbm-download').click();page.wait_for_function('window.__saveAsFiles.length===1')
+    assert page.evaluate('window.__saveAsFiles[0].size')>0
     # Chromium's folder API writes directly to the selected folder, remembers
     # the handle when possible, and never overwrites an existing file.
     page.evaluate('''()=>{
@@ -263,6 +270,7 @@ with sync_playwright() as p:
       }};
       window.showDirectoryPicker=async()=>directory;
     }''')
+    page.locator('#tbm-folder').click();page.wait_for_function("document.querySelector('#tbm-folder-status').textContent==='저장 위치: 11월'")
     page.locator('#tbm-download').click();page.wait_for_function('window.__savedFiles.length===1')
     assert page.locator('#tbm-folder-status').inner_text()=='저장 위치: 11월'
     page.locator('#tbm-download').click();page.wait_for_function('window.__savedFiles.length===2')
