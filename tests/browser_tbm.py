@@ -78,7 +78,8 @@ with sync_playwright() as p:
         assert '소화설비 교육' in text(6)
         assert '③ 전력계통 숙지' in text(11)
         assert all('☑' not in text(i) and '□ 적합' in text(i) for i in [17,20,23,45,46,47,48])
-        assert all(text(i).startswith('　') for i in [17,18,20,21,23,24])
+        assert all(text(i).startswith(' ') for i in [16,19,22])
+        assert all(not text(i).startswith((' ','　')) for i in [17,18,20,21,23,24])
         assert text(31)=='김승오' and not text(30).strip()
         assert text(35)=='김범석' and '□ 적합' in text(45)
         for i in [3,32,40,41,42,43]:assert not text(i).strip(),f'Signature unexpectedly filled: {i}'
@@ -127,7 +128,7 @@ with sync_playwright() as p:
             style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%paragraph.get('paraPrIDRef'))[0]
             assert char.get('height')=='1100'
             assert all(n.get('value')=='150' for n in style.xpath('.//*[local-name()="lineSpacing"]'))
-        assert all(''.join(p.itertext()).startswith('　') for i in [10,11] for p in cells[i].findall('.//{%s}p'%HP))
+        assert all(''.join(p.itertext()).startswith(' ') for i in [10,11] for p in cells[i].findall('.//{%s}p'%HP))
         assert all(style.get('textColor')=='#000000' for style in header.xpath('//*[local-name()="charPr"]'))
         for style_id,height in [('9','1200'),('15','1000'),('17','1000')]:
             assert header.xpath('//*[local-name()="charPr"][@id="%s"]'%style_id)[0].get('height')==height

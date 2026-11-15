@@ -113,10 +113,14 @@
     paragraphs(6,values.planLines,15,33);
     paragraphs(8,['유해·위험요인'],riskChar.getAttribute('id'),riskTitlePara.getAttribute('id'));
     paragraphs(9,['안전대책'],riskChar.getAttribute('id'),riskTitlePara.getAttribute('id'));
-    paragraphs(10,values.risks.map((risk,i)=>`　${['①','②'][i]} ${risk.risk}`).concat('　※ 전체 유해‧위험요인은 위험성평가표 참고'),riskChar.getAttribute('id'),riskBodyPara.getAttribute('id'));
-    paragraphs(11,values.riskRules.map((rule,i)=>`　${['①','②','③'][i]} ${rule}`),riskChar.getAttribute('id'),riskBodyPara.getAttribute('id'));
+    paragraphs(10,values.risks.map((risk,i)=>` ${['①','②'][i]} ${risk.risk}`).concat(' ※ 전체 유해‧위험요인은 위험성평가표 참고'),riskChar.getAttribute('id'),riskBodyPara.getAttribute('id'));
+    paragraphs(11,values.riskRules.map((rule,i)=>` ${['①','②','③'][i]} ${rule}`),riskChar.getAttribute('id'),riskBodyPara.getAttribute('id'));
     const checkbox=value=>value==='적합'?'☑ 적합　□ 부적합':value==='부적합'?'□ 적합　☑ 부적합':'□ 적합　□ 부적합';
-    values.checks.forEach((check,i)=>{paragraphs([17,20,23][i],[`　${checkbox(check.result)}`],20);paragraphs([18,21,24][i],[`　${check.action}`],20);});
+    values.checks.forEach((check,i)=>{
+      paragraphs([16,19,22][i],[` ${check.label}`]);
+      paragraphs([17,20,23][i],[checkbox(check.result)],20);
+      paragraphs([18,21,24][i],[check.action],20);
+    });
     // Explicit breaks match the compact reference; automatic Korean wrapping
     // previously turned '(교육교관)' into two lines and enlarged the row.
     paragraphs(25,['확 인 자\n(교육교관)'],instructorChar.getAttribute('id'),labelPara.getAttribute('id'));
