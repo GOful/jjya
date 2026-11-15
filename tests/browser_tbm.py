@@ -77,6 +77,10 @@ with sync_playwright() as p:
     assert abs(float(web_style['attendance'].removesuffix('px'))-13.3333)<.02
     assert abs(float(web_style['signature'].removesuffix('px'))-16)<.02
     assert abs(float(web_style['riskRow'].removesuffix('px'))-(7917-566)/75)<.02
+    assert all(page.locator(f'#tbm-cell-{i}').evaluate("el=>getComputedStyle(el).textAlign")=='center' for i in [30,31,35,36,37,38])
+    method_label=page.locator('.document-methods>span')
+    assert method_label.inner_text()=='- 작업방법:'
+    assert method_label.evaluate("el=>getComputedStyle(el).whiteSpace")=='nowrap'
     page.select_option('#tbm-zoom','0.7')
     assert abs(page.locator('#tbm-paper').bounding_box()['width']-794*0.7)<2
     page.select_option('#tbm-zoom','1')
