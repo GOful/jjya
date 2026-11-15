@@ -2,7 +2,7 @@
   'use strict';
   const panel=document.querySelector('#tbm-generator');
   panel.innerHTML=`<form id="tbm-form"><fieldset id="tbm-controls" class="workspace">
-    <div class="document-toolbar"><label>보기 <select id="tbm-zoom" aria-label="문서 확대 비율"><option value="1">100%</option><option value="0.85">85%</option><option value="0.7">70%</option><option value="0.55">55%</option></select></label><details id="tbm-worker-picker" class="toolbar-picker"><summary id="tbm-worker-summary">작업자 선택</summary><div class="document-choice-menu"><label><input type="checkbox" name="tbm-worker" value="김대일" checked> 김대일</label><label><input type="checkbox" name="tbm-worker" value="김승오" checked> 김승오</label><label><input type="checkbox" name="tbm-worker" value="김범석" checked> 김범석</label></div></details><button type="submit" id="tbm-download">HWPX 다운로드</button><span id="tbm-status" role="status" aria-live="polite"></span></div>
+    <div class="document-toolbar"><label>보기 <select id="tbm-zoom" aria-label="문서 확대 비율"><option value="1">100%</option><option value="0.85">85%</option><option value="0.7">70%</option><option value="0.55">55%</option></select></label><button type="submit" id="tbm-download">HWPX 다운로드</button><span id="tbm-status" role="status" aria-live="polite"></span></div>
     <div class="tbm-document-viewport"><div id="tbm-paper-stage"><article id="tbm-paper" class="tbm-paper" aria-label="작업 전 안전교육 원본 양식 편집"><h2 id="tbm-paper-title"></h2><table id="tbm-document-table" class="tbm-document-table"></table><div id="tbm-legal"></div></article></div></div>
   </fieldset></form>`;
   const $=id=>document.getElementById(id),text=id=>$(id).value.trim();
@@ -33,8 +33,9 @@
   const put=(index,html)=>{$(`tbm-cell-${index}`).innerHTML=html;};
   put(0,`<div class="document-line">□ 소　　속 : <span class="document-fixed">대구은행 변전분소</span></div><div class="document-line">□ 교육일시 : <input id="tbm-date" aria-label="교육일자" type="date" required><span id="tbm-weekday"></span><input id="tbm-education-start" class="document-clock" aria-label="교육 시작" value="09:10" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" required> ~ <input id="tbm-education-end" class="document-clock" aria-label="교육 종료" value="09:30" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" required></div><div class="document-line">□ 교육장소 : <input id="tbm-location" aria-label="교육장소" value="분소 사무실" required maxlength="40"></div>`);
   put(6,`<div class="document-work-title">(<select id="tbm-shift" aria-label="근무"><option>야간</option><option>주간</option></select>) <select id="tbm-work-preset" aria-label="작업 종류"><option>변전설비 일상점검</option><option>MCC설비 점검</option><option>수전선로 점검</option><option>직접 입력</option></select><input id="tbm-work-title" aria-label="작업명" value="변전설비 일상점검" required maxlength="60" hidden></div>
-  <div class="document-line">- 작업일시: <input id="tbm-start" class="document-clock" aria-label="작업 시작" value="09:30" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" required> ~ <input id="tbm-end" class="document-clock" aria-label="작업 종료" value="18:00" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" required></div>
-  <div class="document-choices"><span>- 작업구간:</span><details id="tbm-area-picker"><summary id="tbm-area-summary">대구은행 변전소</summary><div class="document-choice-menu document-area-menu"><div class="document-area-row"><b>A</b>${['문양기지','성서산단','반고개','만촌','사월'].map(area=>`<label><input type="checkbox" name="tbm-area" value="${area}"> ${area}</label>`).join('')}</div><div class="document-area-row"><b>B</b>${['대실','죽전','대구은행','수성알파시티','영남대'].map(area=>`<label><input type="checkbox" name="tbm-area" value="${area}"${area==='대구은행'?' checked':''}> ${area}</label>`).join('')}</div></div></details></div>
+  <div id="tbm-work-time-row" class="document-line">- 작업일시: <input id="tbm-start" class="document-clock" aria-label="작업 시작" value="09:30" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" required> ~ <input id="tbm-end" class="document-clock" aria-label="작업 종료" value="18:00" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" required></div>
+  <div id="tbm-worker-row" class="document-choices"><span>- 작업자:</span><details id="tbm-worker-picker"><summary id="tbm-worker-summary">작업자 선택</summary><div class="document-choice-menu"><label><input type="checkbox" name="tbm-worker" value="김대일" checked> 김대일</label><label><input type="checkbox" name="tbm-worker" value="김승오" checked> 김승오</label><label><input type="checkbox" name="tbm-worker" value="김범석" checked> 김범석</label></div></details></div>
+  <div id="tbm-area-row" class="document-choices"><span>- 작업구간:</span><details id="tbm-area-picker"><summary id="tbm-area-summary">대구은행 변전소</summary><div class="document-choice-menu document-area-menu"><div class="document-area-row"><b>A</b>${['문양기지','성서산단','반고개','만촌','사월'].map(area=>`<label><input type="checkbox" name="tbm-area" value="${area}"> ${area}</label>`).join('')}</div><div class="document-area-row"><b>B</b>${['대실','죽전','대구은행','수성알파시티','영남대'].map(area=>`<label><input type="checkbox" name="tbm-area" value="${area}"${area==='대구은행'?' checked':''}> ${area}</label>`).join('')}</div></div></details></div>
   <label class="document-line">- 작업순서: <input id="tbm-order" aria-label="작업순서" value="AC반 → DC반 → 기타(RTU 및 충전기반)" required maxlength="120"></label>
   <div class="document-methods"><span>- 작업방법:</span><div>
   <label><input type="checkbox" name="tbm-method" value="배전반내 각종 케이블 외관 상태 점검" checked> 배전반내 각종 케이블 외관 상태 점검</label>
@@ -81,7 +82,7 @@
   const chosen=(name)=>[...document.querySelectorAll(`input[name="${name}"]:checked`)].map(input=>input.value);
   function syncWorkersAndAreas(){
     const workers=chosen('tbm-worker'),leader=workers[0]||'',attendees=workers.slice(1);
-    $('tbm-worker-summary').textContent=workers.length?'작업자: '+workers.join(', '):'작업자 선택';
+    $('tbm-worker-summary').textContent=workers.join(', ')||'작업자 선택';
     $('tbm-leader').textContent=leader;
     for(let i=0;i<4;i++)$(`tbm-attendee-${i}`).textContent=attendees[i]||'';
     const areas=chosen('tbm-area');
@@ -126,7 +127,7 @@
     if(!data.methods.length){$('tbm-status').textContent='작업방법을 1개 이상 선택하거나 입력하세요.';return;}
     downloading=true;$('tbm-controls').disabled=true;$('tbm-download').disabled=true;$('tbm-status').textContent='HWPX 생성 중…';
     try{
-      if(!templatePromise)templatePromise=fetch('assets/tbm-template.hwpx?v=20261115-preview2',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('양식을 불러오지 못했습니다.');return response.arrayBuffer();}).catch(error=>{templatePromise=null;throw error;});
+      if(!templatePromise)templatePromise=fetch('assets/tbm-template.hwpx?v=20261115-preview3',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('양식을 불러오지 못했습니다.');return response.arrayBuffer();}).catch(error=>{templatePromise=null;throw error;});
       const bytes=window.HwpxBuilder.fill(await templatePromise,data);
       const blob=new Blob([bytes],{type:'application/hwp+zip'}),url=URL.createObjectURL(blob),link=document.createElement('a');
       link.hidden=true;link.href=url;link.download=`작업 전 안전교육(TBM)(${data.date.replaceAll('-','.')}_${data.shift}).hwpx`;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);

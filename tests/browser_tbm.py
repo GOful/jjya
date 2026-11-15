@@ -54,8 +54,14 @@ with sync_playwright() as p:
     assert page.locator('#generator-tab-daily').get_attribute('aria-pressed')=='false'
     assert page.locator('#tbm-cell-10 textarea').count()==0
     assert page.locator('#tbm-cell-11 textarea').count()==0
-    assert all(name not in page.locator('#tbm-cell-6').inner_text() for name in ['김대일','김승오','김범석'])
-    assert page.locator('#tbm-worker-picker').evaluate("el=>!el.closest('#tbm-paper')")
+    assert all(name not in page.locator('.document-work-title').inner_text() for name in ['김대일','김승오','김범석'])
+    assert page.locator('#tbm-worker-picker').evaluate("el=>!!el.closest('#tbm-paper')")
+    assert page.evaluate("""()=>{
+      const time=document.querySelector('#tbm-work-time-row');
+      const worker=document.querySelector('#tbm-worker-row');
+      const area=document.querySelector('#tbm-area-row');
+      return Boolean(time.compareDocumentPosition(worker)&Node.DOCUMENT_POSITION_FOLLOWING) && Boolean(worker.compareDocumentPosition(area)&Node.DOCUMENT_POSITION_FOLLOWING);
+    }""")
     assert page.locator('#tbm-cell-25').inner_text().splitlines()==['확 인 자','(교육교관)']
     assert page.locator('#tbm-cell-26').inner_text().splitlines()==['작업','책임자']
     assert page.locator('#tbm-cell-33').inner_text().splitlines()==['교육참석자,','작업적합성','평가','(업무일지','참조)']
