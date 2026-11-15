@@ -16,6 +16,7 @@ with sync_playwright() as p:
     page=browser.new_page(viewport={'width':1440,'height':1000},accept_downloads=True)
     errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
     page.route('**/supabase-config.js',lambda route:route.fulfill(content_type='application/javascript',body='window.SUPABASE_CONFIG={enabled:false};'))
+    page.add_init_script('delete window.showDirectoryPicker')
     page.goto(f'http://127.0.0.1:{server.server_port}/index.html')
     page.locator('#generator-tab-tbm').click()
     assert page.locator('#tbm-generator').is_visible() and not page.locator('#daily-generator').is_visible()
@@ -250,6 +251,25 @@ with sync_playwright() as p:
             style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%paragraph.get('paraPrIDRef'))[0]
             assert style.xpath('./*[local-name()="align"]')[0].get('horizontal')=='CENTER'
         assert '김범석' in z.read('Preview/PrvText.txt').decode()
+    # Chromium's folder API writes directly to the selected folder, remembers
+    # the handle when possible, and never overwrites an existing file.
+    page.evaluate('''()=>{
+      const existing=new Set();window.__savedFiles=[];
+      const fileHandle=name=>({createWritable:async()=>({write:async blob=>window.__savedFiles.push({name,size:blob.size}),close:async()=>{}})});
+      const directory={name:'11월',queryPermission:async()=>'granted',requestPermission:async()=>'granted',getFileHandle:async(name,options)=>{
+        if(options&&options.create){existing.add(name);return fileHandle(name);}
+        if(existing.has(name))return fileHandle(name);
+        throw new DOMException('missing','NotFoundError');
+      }};
+      window.showDirectoryPicker=async()=>directory;
+    }''')
+    page.locator('#tbm-download').click();page.wait_for_function('window.__savedFiles.length===1')
+    assert page.locator('#tbm-folder-status').inner_text()=='저장 위치: 11월'
+    page.locator('#tbm-download').click();page.wait_for_function('window.__savedFiles.length===2')
+    saved=page.evaluate('window.__savedFiles')
+    assert saved[0]['name']=='작업 전 안전교육(TBM)(2026.11.14_야간).hwpx'
+    assert saved[1]['name']=='작업 전 안전교육(TBM)(2026.11.14_야간) (1).hwpx'
+    assert all(item['size']>0 for item in saved)
     # Corruption is rejected instead of producing a damaged download.
     assert page.evaluate('''async()=>{const b=await (await fetch('assets/tbm-template.hwpx')).arrayBuffer();new Uint8Array(b)[38]^=1;try{HwpxBuilder.readZip(b);return false;}catch(_){return true;}}''')
     page.set_viewport_size({'width':390,'height':844})
