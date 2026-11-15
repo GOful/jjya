@@ -105,6 +105,18 @@ with sync_playwright() as p:
             style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%style_id)[0]
             if style_id!='22':assert style.xpath('./*[local-name()="align"]')[0].get('horizontal')=='LEFT'
             assert all(node.get('value')==spacing for node in style.xpath('.//*[local-name()="lineSpacing"]'))
+        for index,lines in [(25,['확 인 자','(교육교관)']),(33,['교육참석자,','작업적합성','평가','(업무일지','참조)'])]:
+            run=cells[index].find('.//{%s}run'%HP)
+            assert list(run.itertext())==lines
+            char=header.xpath('//*[local-name()="charPr"][@id="%s"]'%run.get('charPrIDRef'))[0]
+            assert char.get('height')=='900'
+            paragraph=cells[index].find('.//{%s}p'%HP)
+            style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%paragraph.get('paraPrIDRef'))[0]
+            assert style.get('snapToGrid')=='0'
+            assert all(n.get('value')=='100' for n in style.xpath('.//*[local-name()="lineSpacing"]'))
+            # Explicit lines fit both the column width and the existing row height.
+            assert max(len(line) for line in lines)*900 <= 5960-282
+            assert len(lines)*900 <= int(cells[index].find('{%s}cellSz'%HP).get('height'))-282
         assert all(style.get('textColor')=='#000000' for style in header.xpath('//*[local-name()="charPr"]'))
         for style_id,height in [('9','1200'),('15','1000'),('17','1000')]:
             assert header.xpath('//*[local-name()="charPr"][@id="%s"]'%style_id)[0].get('height')==height
