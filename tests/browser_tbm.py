@@ -105,7 +105,6 @@ with sync_playwright() as p:
         assert all(len(cells[i].findall('.//{%s}p'%HP))==1 for i in [1,2,3,25,29,33])
         assert all(''.join(p.itertext()).strip() for i in [1,2,25,29,33] for p in cells[i].findall('.//{%s}p'%HP))
         assert all(cell.find('{%s}subList'%HP).get('vertAlign')=='CENTER' for cell in cells)
-        assert all(p.get('paraPrIDRef')=='33' for p in cells[6].findall('.//{%s}p'%HP))
         header=E.fromstring(z.read('Contents/header.xml'))
         for style_id,spacing in [('22','120'),('33','120'),('34','120')]:
             style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%style_id)[0]
@@ -128,6 +127,16 @@ with sync_playwright() as p:
             style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%paragraph.get('paraPrIDRef'))[0]
             assert char.get('height')=='1100'
             assert all(n.get('value')=='150' for n in style.xpath('.//*[local-name()="lineSpacing"]'))
+        for paragraph in cells[6].findall('.//{%s}p'%HP):
+            run=paragraph.find('{%s}run'%HP)
+            char=header.xpath('//*[local-name()="charPr"][@id="%s"]'%run.get('charPrIDRef'))[0]
+            style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%paragraph.get('paraPrIDRef'))[0]
+            assert char.get('height')=='1100'
+            assert all(n.get('value')=='150' for n in style.xpath('.//*[local-name()="lineSpacing"]'))
+        for index in [27,28]:
+            run=cells[index].find('.//{%s}run'%HP)
+            char=header.xpath('//*[local-name()="charPr"][@id="%s"]'%run.get('charPrIDRef'))[0]
+            assert char.get('height')=='1200'
         assert all(''.join(p.itertext()).startswith(' ') for i in [10,11] for p in cells[i].findall('.//{%s}p'%HP))
         assert all(style.get('textColor')=='#000000' for style in header.xpath('//*[local-name()="charPr"]'))
         for style_id,height in [('9','1200'),('15','1000'),('17','1000')]:
