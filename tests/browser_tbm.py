@@ -90,6 +90,7 @@ with sync_playwright() as p:
             for index,(old,new) in enumerate(zip(before.findall('.//{%s}tc'%HP),cells)):
                 for local in ['cellAddr','cellSpan','cellSz','cellMargin']:
                     expected=dict(old.find('{%s}%s'%(HP,local)).attrib)
+                    if local=='cellMargin' and index==6:expected={side:'567' for side in ['left','right','top','bottom']}
                     if local=='cellSz' and index in [10,11]:expected['height']=str(int(expected['height'])-566)
                     assert expected==new.find('{%s}%s'%(HP,local)).attrib
             old_size=before.find('.//{%s}tbl/{%s}sz'%(HP,HP))
@@ -98,6 +99,7 @@ with sync_playwright() as p:
         # Paragraph count and alignment follow the supplied HWP; every cell is
         # vertically centered for the downloadable form.
         assert len(cells[6].findall('.//{%s}p'%HP))==12
+        assert cells[6].find('{%s}cellMargin'%HP).attrib=={side:'567' for side in ['left','right','top','bottom']}
         assert len(cells[6].findall('.//{%s}lineBreak'%HP))==2
         assert all(''.join(p.itertext()).strip() for p in cells[6].findall('.//{%s}p'%HP))
         assert len(cells[10].findall('.//{%s}p'%HP))==3

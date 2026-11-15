@@ -92,6 +92,8 @@
     // Trim only the risk/countermeasure row by 2 mm (about 566 HWP units),
     // matching the small manual row-height adjustment in Hangul.
     const riskRowTrim=566;
+    const planMargin=children(cells[6],'cellMargin')[0];
+    for(const side of ['left','right','top','bottom'])planMargin.setAttribute(side,'567');
     for(const index of [10,11]){
       const size=children(cells[index],'cellSz')[0];
       size.setAttribute('height',String(Number(size.getAttribute('height'))-riskRowTrim));
