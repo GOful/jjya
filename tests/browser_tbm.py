@@ -151,7 +151,7 @@ with sync_playwright() as p:
         assert '교육 및 훈련의 미흡' in text(6) and '소화설비 교육' not in text(6)
         assert '② 작업 전 TBM 실시, 주기적 안전교육' in text(11)
         assert all('☑' not in text(i) and '□ 적합' in text(i) for i in [17,20,23,45,46,47,48])
-        assert all(text(i).startswith(' ') for i in [16,19,22])
+        assert all(not text(i).startswith((' ','　')) for i in [16,19,22])
         assert all(not text(i).startswith((' ','　')) for i in [17,18,20,21,23,24])
         assert text(31)=='김승오' and not text(30).strip()
         assert text(35)=='김범석' and '□ 적합' in text(45)
@@ -164,6 +164,7 @@ with sync_playwright() as p:
                 for local in ['cellAddr','cellSpan','cellSz','cellMargin']:
                     expected=dict(old.find('{%s}%s'%(HP,local)).attrib)
                     if local=='cellMargin' and index==6:expected={side:'567' for side in ['left','right','top','bottom']}
+                    if local=='cellMargin' and index in [10,11,16,19,22]:expected={'left':'378','right':'378','top':'227','bottom':'227'}
                     if local=='cellSz' and index in [10,11]:expected['height']=str(int(expected['height'])-566)
                     assert expected==new.find('{%s}%s'%(HP,local)).attrib
             old_size=before.find('.//{%s}tbl/{%s}sz'%(HP,HP))
@@ -172,7 +173,7 @@ with sync_playwright() as p:
         # Paragraph count and alignment follow the supplied HWP; every cell is
         # vertically centered for the downloadable form.
         plan_paragraphs=cells[6].findall('.//{%s}p'%HP)
-        assert len(plan_paragraphs)==12
+        assert len(plan_paragraphs)==14
         plan_texts=[''.join(p.itertext()) for p in plan_paragraphs]
         assert all(name not in plan_texts[0] for name in ['김대일','김승오','김범석'])
         assert plan_texts[1]=='  - 작업일시: 18:30 ~ 00:20'
@@ -183,17 +184,15 @@ with sync_playwright() as p:
             '               ㅇ 변압기 소음 및 온도 이상유무 확인',
             '               ㅇ 원격소장치 표시등 점등상태 및 통신상태 점검'
         ]
-        assert list(plan_paragraphs[10].itertext())==[
-            '     ㅇ 원방 및 수동 오조작에 의한 급전',
-            '        - 전기안전수칙 준수, 전력계통 숙지'
-        ]
-        assert list(plan_paragraphs[11].itertext())==[
-            '     ㅇ 교육 및 훈련의 미흡',
-            '        - 작업 전 TBM 실시, 주기적 안전교육'
+        assert plan_texts[10:14]==[
+            'ㅇ 원방 및 수동 오조작에 의한 급전',
+            '- 전기안전수칙 준수, 전력계통 숙지',
+            'ㅇ 교육 및 훈련의 미흡',
+            '- 작업 전 TBM 실시, 주기적 안전교육'
         ]
         assert cells[6].get('hasMargin')=='1'
         assert cells[6].find('{%s}cellMargin'%HP).attrib=={side:'567' for side in ['left','right','top','bottom']}
-        assert len(cells[6].findall('.//{%s}lineBreak'%HP))==2
+        assert len(cells[6].findall('.//{%s}lineBreak'%HP))==0
         assert all(''.join(p.itertext()).strip() for p in plan_paragraphs)
         assert len(cells[10].findall('.//{%s}p'%HP))==3
         assert len(cells[11].findall('.//{%s}p'%HP))==2
@@ -205,7 +204,7 @@ with sync_playwright() as p:
             style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%style_id)[0]
             if style_id!='22':assert style.xpath('./*[local-name()="align"]')[0].get('horizontal')=='LEFT'
             assert all(node.get('value')==spacing for node in style.xpath('.//*[local-name()="lineSpacing"]'))
-        for index,lines,height in [(25,['확 인 자','(교육교관)'],'1100'),(26,['작업','책임자'],'1100'),(33,['교육참석자,','작업적합성','평가','(업무일지','참조)'],'1000')]:
+        for index,lines,height in [(25,['확 인 자','(교육교관)'],'1100'),(33,['교육참석자,','작업적합성','평가','(업무일지','참조)'],'1000')]:
             run=cells[index].find('.//{%s}run'%HP)
             assert list(run.itertext())==lines
             char=header.xpath('//*[local-name()="charPr"][@id="%s"]'%run.get('charPrIDRef'))[0]
@@ -215,6 +214,11 @@ with sync_playwright() as p:
             assert style.get('snapToGrid')=='0'
             assert all(n.get('value')=='100' for n in style.xpath('.//*[local-name()="lineSpacing"]'))
             # Explicit lines fit both the column width and the existing row height.
+        responsibility=cells[26].findall('.//{%s}p'%HP)
+        assert [''.join(p.itertext()) for p in responsibility]==['작업','책임자']
+        for paragraph in responsibility:
+            run=paragraph.find('{%s}run'%HP);char=header.xpath('//*[local-name()="charPr"][@id="%s"]'%run.get('charPrIDRef'))[0]
+            assert char.get('height')=='1100'
         for index in [8,9,10,11]:
             paragraph=cells[index].find('.//{%s}p'%HP)
             run=paragraph.find('{%s}run'%HP)
@@ -237,7 +241,14 @@ with sync_playwright() as p:
             run=cells[index].find('.//{%s}run'%HP)
             char=header.xpath('//*[local-name()="charPr"][@id="%s"]'%run.get('charPrIDRef'))[0]
             assert char.get('height')=='1200'
-        assert all(''.join(p.itertext()).startswith(' ') for i in [10,11] for p in cells[i].findall('.//{%s}p'%HP))
+        assert all(not ''.join(p.itertext()).startswith((' ','　')) for i in [10,11] for p in cells[i].findall('.//{%s}p'%HP))
+        def paragraph_left(paragraph):
+            style=header.xpath('//*[local-name()="paraPr"][@id="%s"]'%paragraph.get('paraPrIDRef'))[0]
+            return {node.get('value') for node in style.xpath('.//*[local-name()="margin"]/*[local-name()="left"]')}
+        assert all(paragraph_left(plan_paragraphs[i])=={'1700'} for i in [10,12])
+        assert all(paragraph_left(plan_paragraphs[i])=={'3000'} for i in [11,13])
+        assert all(paragraph_left(cells[i].find('.//{%s}p'%HP))=={'300'} for i in [10,11,16,19,22])
+        assert all(cells[i].get('hasMargin')=='1' for i in [6,10,11,16,19,22])
         assert all(style.get('textColor')=='#000000' for style in header.xpath('//*[local-name()="charPr"]'))
         for style_id,height in [('9','1200'),('15','1000'),('17','1000')]:
             assert header.xpath('//*[local-name()="charPr"][@id="%s"]'%style_id)[0].get('height')==height

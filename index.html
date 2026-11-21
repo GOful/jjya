@@ -70,9 +70,9 @@ textarea{display:block;width:100%;min-height:310px;padding:18px;border:1px solid
 </style>
 <script src="supabase-config.js"></script>
 <script src="cloud.js"></script>
-<script src="hwpx.js?v=20261115-risk-picker9" defer></script>
-<script src="assets/tbm-layout.js?v=20261115-risk-picker9" defer></script>
-<script src="tbm.js?v=20261115-risk-picker9" defer></script>
+<script src="hwpx.js?v=20261121-indent" defer></script>
+<script src="assets/tbm-layout.js?v=20261121-indent" defer></script>
+<script src="tbm.js?v=20261121-indent" defer></script>
 </head>
 <body>
 <main>
@@ -293,7 +293,7 @@ function inspectionText(selections = inspectionSelections) {
     if ((start && !end) || (!start && end)) throw new Error(`${title}: 시작일과 종료일을 모두 입력하거나 모두 비워주세요.`);
     if (start && start > end) throw new Error(`${title}: 종료일이 시작일보다 빠릅니다.`);
     const period = start ? `(${start.replaceAll('-', '.')} ~ ${end.replaceAll('-', '.')})` : i === 4 ? '(매월 1~10일 / 해당 월 공문 확인)' : '';
-    blocks.push(`* ${title}${period}\n  ◦ ${entries[j]}`);
+    blocks.push(`* ${title}${period}\n  - ${entries[j]}`);
   });
   return blocks.length ? blocks.join('\n') + '\n' : '';
 }
@@ -440,6 +440,10 @@ async function copyText(text) {
   output.focus(); output.select();
   if (!document.execCommand('copy')) throw new Error('clipboard unavailable');
 }
+output.addEventListener('copy',event=>{
+  if(copyButton.dataset.copying||output.selectionStart===output.selectionEnd)return;
+  event.preventDefault();alert('업무일지 내용은 아래 "복사" 버튼을 눌러 복사해 주세요.');
+});
 copyButton.addEventListener('click', async () => {
   if (busy || cloudWorking || !pending || !output.value.trim() || (shared?.enabled && !currentUser)) return;
   const selected = pending;

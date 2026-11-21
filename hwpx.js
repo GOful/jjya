@@ -71,6 +71,13 @@
       copy.setAttribute('id',id);source.parentNode.append(copy);
       source.parentNode.setAttribute('itemCnt',String(styles.length+1));return copy;
     }
+    function setParagraphIndent(style,left,intent='0'){
+      for(const margin of style.getElementsByTagNameNS(HH,'margin'))for(const node of margin.children){
+        if(node.localName==='left')node.setAttribute('value',String(left));
+        if(node.localName==='intent')node.setAttribute('value',String(intent));
+      }
+      return style;
+    }
     const labelChar=labelStyle('charPr','14');labelChar.setAttribute('height','1000');
     const instructorChar=labelStyle('charPr','14');instructorChar.setAttribute('height','1100');
     const riskChar=labelStyle('charPr','17');riskChar.setAttribute('height','1100');
@@ -85,14 +92,17 @@
     const labelPara=labelStyle('paraPr','23');labelPara.setAttribute('snapToGrid','0');
     for(const spacing of labelPara.getElementsByTagNameNS(HH,'lineSpacing'))spacing.setAttribute('value','100');
     const riskTitlePara=labelStyle('paraPr','24');riskTitlePara.setAttribute('snapToGrid','0');
-    const riskBodyPara=labelStyle('paraPr','34');riskBodyPara.setAttribute('snapToGrid','0');
+    const riskBodyPara=setParagraphIndent(labelStyle('paraPr','34'),'300');riskBodyPara.setAttribute('snapToGrid','0');
     const planPara=labelStyle('paraPr','33');planPara.setAttribute('snapToGrid','0');
+    const riskPlanPara=setParagraphIndent(labelStyle('paraPr',planPara.getAttribute('id')),'1700');
+    const riskPlanRulePara=setParagraphIndent(labelStyle('paraPr',planPara.getAttribute('id')),'3000');
+    const checkBodyPara=setParagraphIndent(labelStyle('paraPr','26'),'300');checkBodyPara.setAttribute('snapToGrid','0');
     for(const style of [riskTitlePara,riskBodyPara]){
       for(const spacing of style.getElementsByTagNameNS(HH,'lineSpacing')){
         spacing.setAttribute('type','PERCENT');spacing.setAttribute('value','150');
       }
     }
-    for(const spacing of planPara.getElementsByTagNameNS(HH,'lineSpacing')){
+    for(const style of [planPara,riskPlanPara,riskPlanRulePara])for(const spacing of style.getElementsByTagNameNS(HH,'lineSpacing')){
       spacing.setAttribute('type','PERCENT');spacing.setAttribute('value','150');
     }
     // Trim only the risk/countermeasure row by 2 mm (about 566 HWP units),
@@ -101,6 +111,11 @@
     cells[6].setAttribute('hasMargin','1');
     const planMargin=children(cells[6],'cellMargin')[0];
     for(const side of ['left','right','top','bottom'])planMargin.setAttribute(side,'567');
+    function setCellMargin(index){
+      cells[index].setAttribute('hasMargin','1');const margin=children(cells[index],'cellMargin')[0];
+      margin.setAttribute('left','378');margin.setAttribute('right','378');margin.setAttribute('top','227');margin.setAttribute('bottom','227');
+    }
+    for(const index of [10,11,16,19,22])setCellMargin(index);
     for(const index of [10,11]){
       const size=children(cells[index],'cellSz')[0];
       size.setAttribute('height',String(Number(size.getAttribute('height'))-riskRowTrim));
@@ -117,29 +132,30 @@
     function paragraphs(index,lines,charId,paraId){
       const sub=children(cells[index],'subList')[0],original=children(sub,'p');
       const next=lines.map((line,i)=>{
+        const descriptor=typeof line==='string'?{text:line}:line;
         const base=original[Math.min(i,original.length-1)].cloneNode(true);
         children(base,'linesegarray').forEach(node=>node.remove());
-        if(paraId!==undefined)base.setAttribute('paraPrIDRef',String(paraId));
+        const selectedPara=descriptor.paraId??paraId;if(selectedPara!==undefined)base.setAttribute('paraPrIDRef',String(selectedPara));
         const source=children(base,'run').find(run=>run.getAttribute('charPrIDRef')==='15')||children(base,'run')[0];
-        const run=source.cloneNode(false);if(charId!==undefined)run.setAttribute('charPrIDRef',String(charId));setText(xml,run,line);base.replaceChildren(run);return base;
+        const run=source.cloneNode(false),selectedChar=descriptor.charId??charId;if(selectedChar!==undefined)run.setAttribute('charPrIDRef',String(selectedChar));setText(xml,run,descriptor.text);base.replaceChildren(run);return base;
       });sub.replaceChildren(...next);
     }
     paragraphs(0,[`□ 소    속 : ${values.department}`,`□ 교육일시 : ${values.educationDate}`,`□ 교육장소 : ${values.location}`],9);
-    paragraphs(6,values.planLines,planChar.getAttribute('id'),planPara.getAttribute('id'));
+    paragraphs(6,values.planLines.map(line=>line.startsWith('     ㅇ ')?{text:line.trimStart(),paraId:riskPlanPara.getAttribute('id')}:line.startsWith('        - ')?{text:line.trimStart(),paraId:riskPlanRulePara.getAttribute('id')}:{text:line}),planChar.getAttribute('id'),planPara.getAttribute('id'));
     paragraphs(8,['유해·위험요인'],riskChar.getAttribute('id'),riskTitlePara.getAttribute('id'));
     paragraphs(9,['안전대책'],riskChar.getAttribute('id'),riskTitlePara.getAttribute('id'));
-    paragraphs(10,values.risks.map((risk,i)=>` ${['①','②'][i]} ${risk.risk}`).concat(' ※ 전체 유해‧위험요인은 위험성평가표 참고'),riskBodyChar.getAttribute('id'),riskBodyPara.getAttribute('id'));
-    paragraphs(11,values.riskRules.map((rule,i)=>` ${['①','②','③'][i]} ${rule}`),riskBodyChar.getAttribute('id'),riskBodyPara.getAttribute('id'));
+    paragraphs(10,values.risks.map((risk,i)=>`${['①','②'][i]} ${risk.risk}`).concat('※ 전체 유해‧위험요인은 위험성평가표 참고'),riskBodyChar.getAttribute('id'),riskBodyPara.getAttribute('id'));
+    paragraphs(11,values.riskRules.map((rule,i)=>`${['①','②','③'][i]} ${rule}`),riskBodyChar.getAttribute('id'),riskBodyPara.getAttribute('id'));
     const checkbox=value=>value==='적합'?'☑ 적합　□ 부적합':value==='부적합'?'□ 적합　☑ 부적합':'□ 적합　□ 부적합';
     values.checks.forEach((check,i)=>{
-      paragraphs([16,19,22][i],[` ${check.label}`]);
+      paragraphs([16,19,22][i],[check.label],undefined,checkBodyPara.getAttribute('id'));
       paragraphs([17,20,23][i],[checkbox(check.result)],20);
       paragraphs([18,21,24][i],[check.action],20);
     });
     // Explicit breaks match the compact reference; automatic Korean wrapping
     // previously turned '(교육교관)' into two lines and enlarged the row.
     paragraphs(25,['확 인 자\n(교육교관)'],instructorChar.getAttribute('id'),labelPara.getAttribute('id'));
-    paragraphs(26,['작업\n책임자'],instructorChar.getAttribute('id'),labelPara.getAttribute('id'));
+    paragraphs(26,['작업','책임자'],instructorChar.getAttribute('id'),labelPara.getAttribute('id'));
     paragraphs(27,['성 명'],signatureTitleChar.getAttribute('id'));
     paragraphs(28,['서 명'],signatureTitleChar.getAttribute('id'));
     paragraphs(33,['교육참석자,\n작업적합성\n평가\n(업무일지\n참조)'],labelChar.getAttribute('id'),labelPara.getAttribute('id'));

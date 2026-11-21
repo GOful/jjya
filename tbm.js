@@ -239,7 +239,7 @@
       ...methods.map((line,index)=>`${index?'               ':'  - 작업방법:  '}ㅇ ${line}`),
       '  - 작업원별 임무 및 작업장 이동방법: 육안 점검 실시, 열차를 통한 이동',
       '  - 위험요인 안전조치 및 교육:',
-      ...risks.map(item=>`     ㅇ ${item.risk}\n        - ${item.rules}`)];
+      ...risks.flatMap(item=>[`     ㅇ ${item.risk}`,`        - ${item.rules}`])];
     const data={department:'대구은행 변전분소',educationDate,date,location:text('tbm-location'),shift:text('tbm-shift'),leader,railwayManager:'',attendees:people,risks,riskRules:risks.map(item=>item.rules),methods,planLines,checks:checks.map(label=>({label,result:'미확인',action:''}))};
     data.previewText=['작업 전 안전교육(TBM) 일지',`소속: ${data.department}`,`교육일시: ${educationDate}`,`교육장소: ${data.location}`,'[작업 계획]',...planLines,'[위험성평가 결과]',...risks.map(item=>`${item.risk}\n안전대책: ${item.rules}`),'[확인사항]',...data.checks.map(check=>`${check.label}: ${check.result}${check.action?' / '+check.action:''}`),`작업책임자: ${leader}`,`철도운행 안전관리자: ${data.railwayManager}`,'[교육참석자]',...people.filter(person=>person.name).map(person=>`${person.name}: ${person.fitness}`)].join('\r\n');
     return data;
@@ -265,7 +265,7 @@
       const directory=await writableDirectory();
       const fileHandle=!directory&&window.showSaveFilePicker?await window.showSaveFilePicker({id:'tbm-hwpx-file',suggestedName:fileName,types:[{description:'HWPX 문서',accept:{'application/hwp+zip':['.hwpx']}}]}):null;
       $('tbm-controls').disabled=true;$('tbm-download').disabled=true;$('tbm-status').textContent='HWPX 생성 중…';
-      if(!templatePromise)templatePromise=fetch('assets/tbm-template.hwpx?v=20261115-risk-picker9',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('양식을 불러오지 못했습니다.');return response.arrayBuffer();}).catch(error=>{templatePromise=null;throw error;});
+      if(!templatePromise)templatePromise=fetch('assets/tbm-template.hwpx?v=20261121-indent',{cache:'no-store'}).then(response=>{if(!response.ok)throw new Error('양식을 불러오지 못했습니다.');return response.arrayBuffer();}).catch(error=>{templatePromise=null;throw error;});
       const bytes=window.HwpxBuilder.fill(await templatePromise,data);
       const blob=new Blob([bytes],{type:'application/hwp+zip'});
       if(directory){const savedName=await saveToDirectory(directory,fileName,blob);$('tbm-status').textContent=`${directory.name} 폴더에 ${savedName} 저장 완료`;}

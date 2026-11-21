@@ -101,6 +101,11 @@ with sync_playwright() as p:
     first.locator('#inspection-start').fill('2026-03-25');first.locator('#inspection-end').fill('2026-10-15')
     first.locator('#output-heading').click();first.locator('#misc-select-0').click()
     text=first.locator('#output').input_value()
+    assert '\n  - ' in text and '◦' not in text
+    first.locator('#output').focus();first.locator('#output').evaluate('(el)=>el.setSelectionRange(0,12)')
+    dialogs=[];first.once('dialog',lambda dialog:(dialogs.append(dialog.message),dialog.accept()))
+    first.locator('#output').press('Control+c')
+    assert dialogs==['업무일지 내용은 아래 "복사" 버튼을 눌러 복사해 주세요.']
     assert text.index('* 근골격계질환 대비 스트레칭 실시') < text.index('* 분소행정업무처리') < text.index('* 위험예지훈련 실시')
     assert text.index('* 변전소 전력량 검침') < text.index('작업 후 :')
     first.locator('#misc-select-6').click()
